@@ -14,9 +14,7 @@
         "name": "YANG"
       },
       "category": "productivity",
-      "source": {
-        "source": "./plugins/yang-toolkit"
-      },
+      "source": "./plugins/yang-toolkit",
       "homepage": "https://github.com/YangHungTW/harness"
     }
   ]
