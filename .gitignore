@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (in case plugin grows JS tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Claude Code transient state -- in this marketplace repo we don't expect
+# .claude/ at all, but leaving the entries here as documentation of what
+# CLIENT repos using this plugin should ignore.
+.claude/sessions/
+.claude/logs/
+.claude/state/
+.claude/dashboard.html
+
+# Local-only overrides
+.env
+.env.local
+*.local

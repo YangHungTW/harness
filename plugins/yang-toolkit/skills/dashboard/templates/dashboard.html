@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>harness // dashboard</title>
+<!--
+  ledger.jsonl one record = one JSON object with this shape:
+  {
+    "ts":      ISO8601 string,
+    "feature": string,                                              // feature slug
+    "phase":   "discovery"|"architecture"|"implementation"|"review"|"summary",
+    "agent":   string,                                              // agent name
+    "outcome": "in-progress"|"merged"|"abandoned"|"failed",
+    "files":   number,
+    "tokens":  number,
+    "tools":   { [tool_name: string]: number },
+    "pr":      string | null,
+    "commit":  string | null
+  }
+
+  The dashboard skill REPLACES the contents of the
+  <script type="application/json" id="ledger-data"> block with a JSON ARRAY
+  of these records (not JSONL). The mock data below is just so this file
+  previews correctly when opened directly.
+-->
+<style>
+  :root {
+    --bg:        #0c0e12;
+    --panel:     #14171d;
+    --panel-2:   #1a1f27;
+    --line:      #232a35;
+    --text:      #d7dde6;
+    --muted:     #7b8594;
+    --accent:    #7aa7ff;
+
+    --c-merged:        #4ade80;
+    --c-in-progress:   #facc15;
+    --c-abandoned:     #4b5563;
+    --c-failed:        #f87171;
+
+    --c-agent-rails:          #f472b6;
+    --c-agent-solidity:       #a78bfa;
+    --c-agent-client-manager: #60a5fa;
+    --c-agent-devops:         #34d399;
+    --c-agent-unknown:        #6b7280;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  a { color: var(--accent); }
+  .wrap {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px 20px 80px;
+    display: grid;
+    gap: 24px;
+  }
+
+  /* ---------- HEADER ---------- */
+  header.hdr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: end;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 16px;
+  }
+  .hdr-title {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .hdr-title .mp {
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+  .hdr-title .sep { color: var(--muted); }
+  .hdr-title .repo {
+    font-size: 16px;
+    color: var(--text);
+  }
+  .hdr-stats {
+    display: flex;
+    gap: 24px;
+  }
+  .stat {
+    text-align: right;
+  }
+  .stat .v {
+    font-size: 22px;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+  .stat .k {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  /* ---------- SECTION SHELL ---------- */
+  section.panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px 18px;
+  }
+  section.panel > h2 {
+    margin: 0 0 14px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+  }
+
+  /* ---------- TIMELINE ---------- */
+  .timeline {
+    display: grid;
+    grid-template-columns: repeat(14, minmax(0, 1fr));
+    gap: 6px;
+    align-items: stretch;
+  }
+  .day {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    min-height: 88px;
+    padding: 6px 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+  }
+  .day .date {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .day .blocks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: auto;
+  }
+  .block {
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--c-in-progress);
+    cursor: default;
+  }
+  .block.merged      { background: var(--c-merged); }
+  .block.in-progress { background: var(--c-in-progress); }
+  .block.abandoned   { background: var(--c-abandoned); }
+  .block.failed      { background: var(--c-failed); }
+  .block[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translate(-50%, -6px);
+    background: #0a0c10;
+    color: var(--text);
+    border: 1px solid var(--line);
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: pre;
+    z-index: 5;
+    pointer-events: none;
+    max-width: 320px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .legend .sw {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* ---------- KANBAN ---------- */
+  .kanban {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .col {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 10px;
+    min-height: 120px;
+  }
+  .col h3 {
+    margin: 0 0 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .card {
+    background: #1f2530;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .card .feat {
+    font-size: 13px;
+    color: var(--text);
+    word-break: break-word;
+  }
+  .card .meta {
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .badge {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    text-transform: lowercase;
+    letter-spacing: 0.04em;
+    color: #0a0c10;
+    font-weight: 600;
+  }
+  .badge.rails-dev       { background: var(--c-agent-rails); }
+  .badge.solidity-dev    { background: var(--c-agent-solidity); }
+  .badge.client-manager  { background: var(--c-agent-client-manager); }
+  .badge.devops          { background: var(--c-agent-devops); }
+  .badge.unknown         { background: var(--c-agent-unknown); color: var(--text); }
+
+  /* ---------- FOOTER STATS ---------- */
+  .footstats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .sub {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 12px;
+  }
+  .sub h3 {
+    margin: 0 0 10px;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+  }
+  .stacked {
+    display: flex;
+    height: 20px;
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .stacked > div {
+    height: 100%;
+  }
+  .stacked-key {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .toolbar {
+    display: grid;
+    gap: 6px;
+  }
+  .toolrow {
+    display: grid;
+    grid-template-columns: 140px 1fr 40px;
+    gap: 8px;
+    align-items: center;
+    font-size: 11px;
+  }
+  .toolrow .bar {
+    background: var(--line);
+    height: 8px;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .toolrow .bar > span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+  }
+  .toolrow .name { color: var(--text); }
+  .toolrow .val  { color: var(--muted); text-align: right; }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 920px) {
+    .kanban     { grid-template-columns: 1fr; }
+    .timeline   { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .footstats  { grid-template-columns: 1fr; }
+    .hdr-stats  { gap: 14px; }
+  }
+  @media (max-width: 560px) {
+    .timeline { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<!--
+  The dashboard skill overwrites the JSON below with the current repo's
+  ledger entries (as a JSON array). Schema is documented at the top of this file.
+-->
+<script type="application/json" id="ledger-data">
+[
+  {"ts":"__T-13__","feature":"morpho-blue-paymaster","phase":"discovery",     "agent":"solidity-dev",   "outcome":"merged",      "files":3, "tokens":18000, "tools":{"Read":12,"Write":2,"Edit":4,"Bash":3},     "pr":"https://github.com/y/repo/pull/41","commit":"a1b2c3d"},
+  {"ts":"__T-12__","feature":"morpho-blue-paymaster","phase":"architecture",  "agent":"solidity-dev",   "outcome":"merged",      "files":5, "tokens":22500, "tools":{"Read":18,"Write":4,"Edit":9,"Bash":5},     "pr":"https://github.com/y/repo/pull/41","commit":"b2c3d4e"},
+  {"ts":"__T-11__","feature":"morpho-blue-paymaster","phase":"implementation","agent":"solidity-dev",   "outcome":"merged",      "files":7, "tokens":41000, "tools":{"Edit":22,"Bash":11,"Read":14,"Grep":6},    "pr":"https://github.com/y/repo/pull/41","commit":"c3d4e5f"},
+  {"ts":"__T-9__", "feature":"bnb-booking-refactor", "phase":"discovery",     "agent":"rails-dev",      "outcome":"abandoned",   "files":2, "tokens":9000,  "tools":{"Read":8,"Grep":4,"Bash":1},                "pr":null,"commit":null},
+  {"ts":"__T-8__", "feature":"client-x-onboarding",  "phase":"summary",       "agent":"client-manager", "outcome":"in-progress", "files":1, "tokens":4200,  "tools":{"Read":3,"Write":1},                        "pr":null,"commit":null},
+  {"ts":"__T-7__", "feature":"nas-cf-tunnel",        "phase":"implementation","agent":"devops",         "outcome":"merged",      "files":4, "tokens":14000, "tools":{"Edit":6,"Bash":12,"Read":7},               "pr":"https://github.com/y/repo/pull/12","commit":"d4e5f60"},
+  {"ts":"__T-5__", "feature":"erc4337-paymaster-v2", "phase":"architecture",  "agent":"solidity-dev",   "outcome":"in-progress", "files":6, "tokens":33500, "tools":{"Read":24,"Edit":10,"Write":3,"Bash":7},    "pr":null,"commit":"e5f6071"},
+  {"ts":"__T-4__", "feature":"bnb-pricing-engine",   "phase":"implementation","agent":"rails-dev",      "outcome":"failed",      "files":9, "tokens":47800, "tools":{"Edit":31,"Bash":18,"Read":20,"Grep":9},    "pr":"https://github.com/y/repo/pull/56","commit":"f607182"},
+  {"ts":"__T-3__", "feature":"bnb-pricing-engine",   "phase":"review",        "agent":"rails-dev",      "outcome":"in-progress", "files":2, "tokens":11200, "tools":{"Read":9,"Edit":3,"Bash":4},                "pr":"https://github.com/y/repo/pull/56","commit":"60718a2"},
+  {"ts":"__T-2__", "feature":"client-y-status",      "phase":"summary",       "agent":"client-manager", "outcome":"in-progress", "files":0, "tokens":2800,  "tools":{"Read":4},                                  "pr":null,"commit":null},
+  {"ts":"__T-1__", "feature":"nas-backup-rotation",  "phase":"discovery",     "agent":"devops",         "outcome":"in-progress", "files":3, "tokens":7400,  "tools":{"Read":6,"Bash":5,"Grep":2},                "pr":null,"commit":null},
+  {"ts":"__T-0__", "feature":"erc4337-paymaster-v2", "phase":"implementation","agent":"solidity-dev",   "outcome":"in-progress", "files":4, "tokens":19500, "tools":{"Edit":12,"Bash":8,"Read":10,"Write":2},    "pr":null,"commit":"718a293"}
+]
+</script>
+
+<div class="wrap">
+
+  <header class="hdr">
+    <div class="hdr-title">
+      <span class="mp">harness</span>
+      <span class="sep">/</span>
+      <span class="repo" id="repo-name">current-repo</span>
+    </div>
+    <div class="hdr-stats">
+      <div class="stat"><div class="v" id="stat-updated">--</div><div class="k">Last update</div></div>
+      <div class="stat"><div class="v" id="stat-sessions">--</div><div class="k">Sessions this wk</div></div>
+      <div class="stat"><div class="v" id="stat-tokens">--</div><div class="k">Tokens this wk</div></div>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>Timeline -- last 14 days</h2>
+    <div class="timeline" id="timeline"></div>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--c-merged)"></span>merged</span>
+      <span><span class="sw" style="background:var(--c-in-progress)"></span>in-progress</span>
+      <span><span class="sw" style="background:var(--c-abandoned)"></span>abandoned</span>
+      <span><span class="sw" style="background:var(--c-failed)"></span>failed</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Feature status</h2>
+    <div class="kanban" id="kanban">
+      <div class="col" data-phase="discovery"><h3>Discovery</h3></div>
+      <div class="col" data-phase="architecture"><h3>Architecture</h3></div>
+      <div class="col" data-phase="implementation"><h3>Implementation</h3></div>
+      <div class="col" data-phase="review"><h3>Review</h3></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Stats</h2>
+    <div class="footstats">
+      <div class="sub">
+        <h3>Token use by agent (this week)</h3>
+        <div class="stacked" id="agent-bar"></div>
+        <div class="stacked-key" id="agent-bar-key"></div>
+      </div>
+      <div class="sub">
+        <h3>Tool call heat (top 5)</h3>
+        <div class="toolbar" id="toolbar"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- 1. Load & normalize ledger ----------
+  function loadLedger() {
+    var el = document.getElementById("ledger-data");
+    if (!el) return [];
+    var raw;
+    try { raw = JSON.parse(el.textContent); } catch (e) { return []; }
+    if (!Array.isArray(raw)) return [];
+
+    // The mock data uses "__T-N__" placeholders so the file renders correctly
+    // when opened directly without the dashboard skill running. The skill will
+    // overwrite this whole block with real ISO timestamps, so the placeholder
+    // path is mock-only.
+    var now = new Date();
+    return raw.map(function (r) {
+      var ts = r.ts;
+      var m = /^__T-(\d+)__$/.exec(ts);
+      if (m) {
+        var d = new Date(now.getTime() - parseInt(m[1], 10) * 86400000);
+        ts = d.toISOString();
+      }
+      return Object.assign({}, r, { ts: ts });
+    });
+  }
+
+  // ---------- 2. Date helpers ----------
+  function dayKey(d) {
+    return d.getUTCFullYear() + "-"
+      + String(d.getUTCMonth() + 1).padStart(2, "0") + "-"
+      + String(d.getUTCDate()).padStart(2, "0");
+  }
+  function shortDate(d) {
+    return String(d.getUTCMonth() + 1).padStart(2, "0") + "/"
+      + String(d.getUTCDate()).padStart(2, "0");
+  }
+  function fmtTokens(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+    if (n >= 1000)    return (n / 1000).toFixed(1) + "k";
+    return String(n);
+  }
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // ---------- 3. Render header ----------
+  function renderHeader(records) {
+    var path = (typeof location !== "undefined" && location.pathname) || "";
+    var parts = path.split("/").filter(Boolean);
+    var repoGuess = parts.length >= 2 ? parts[parts.length - 3] || "current-repo" : "current-repo";
+    document.getElementById("repo-name").textContent = repoGuess;
+
+    if (!records.length) {
+      document.getElementById("stat-updated").textContent  = "--";
+      document.getElementById("stat-sessions").textContent = "0";
+      document.getElementById("stat-tokens").textContent   = "0";
+      return;
+    }
+
+    var sorted = records.slice().sort(function (a, b) {
+      return new Date(a.ts) - new Date(b.ts);
+    });
+    var latest = sorted[sorted.length - 1];
+    var latestDate = new Date(latest.ts);
+    document.getElementById("stat-updated").textContent = shortDate(latestDate);
+
+    var weekStart = new Date(Date.now() - 7 * 86400000);
+    var thisWeek = records.filter(function (r) { return new Date(r.ts) >= weekStart; });
+    document.getElementById("stat-sessions").textContent = String(thisWeek.length);
+    var tk = thisWeek.reduce(function (s, r) { return s + (r.tokens || 0); }, 0);
+    document.getElementById("stat-tokens").textContent = fmtTokens(tk);
+  }
+
+  // ---------- 4. Timeline ----------
+  function renderTimeline(records) {
+    var el = document.getElementById("timeline");
+    el.innerHTML = "";
+    var byDay = {};
+    records.forEach(function (r) {
+      var k = dayKey(new Date(r.ts));
+      (byDay[k] = byDay[k] || []).push(r);
+    });
+
+    var days = [];
+    var today = new Date();
+    for (var i = 13; i >= 0; i--) {
+      var d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) - i * 86400000);
+      days.push(d);
+    }
+
+    days.forEach(function (d) {
+      var cell = document.createElement("div");
+      cell.className = "day";
+      var date = document.createElement("div");
+      date.className = "date";
+      date.textContent = shortDate(d);
+      cell.appendChild(date);
+
+      var blocks = document.createElement("div");
+      blocks.className = "blocks";
+      var key = dayKey(d);
+      var entries = byDay[key] || [];
+      entries.forEach(function (e) {
+        var b = document.createElement("div");
+        b.className = "block " + (e.outcome || "in-progress");
+        var tip = e.feature + "\n"
+          + "phase:  " + (e.phase || "-") + "\n"
+          + "agent:  " + (e.agent || "-") + "\n"
+          + "files:  " + (e.files || 0) + "\n"
+          + "tokens: " + fmtTokens(e.tokens || 0)
+          + (e.pr ? "\nPR:     " + e.pr : "")
+          + (e.commit ? "\ncommit: " + e.commit : "");
+        b.setAttribute("data-tip", tip);
+        blocks.appendChild(b);
+      });
+      cell.appendChild(blocks);
+      el.appendChild(cell);
+    });
+  }
+
+  // ---------- 5. Kanban ----------
+  function renderKanban(records) {
+    // For each feature, find the latest record and place into a column by phase.
+    var byFeature = {};
+    records.forEach(function (r) {
+      var cur = byFeature[r.feature];
+      if (!cur || new Date(r.ts) > new Date(cur.ts)) byFeature[r.feature] = r;
+    });
+
+    var totalsByFeature = {};
+    records.forEach(function (r) {
+      var t = totalsByFeature[r.feature] || { tokens: 0, files: 0 };
+      t.tokens += (r.tokens || 0);
+      t.files  += (r.files  || 0);
+      totalsByFeature[r.feature] = t;
+    });
+
+    // Map "summary" phase to its most recent non-summary phase for display.
+    function displayPhase(rec) {
+      if (rec.phase !== "summary") return rec.phase;
+      var prior = records.filter(function (r) {
+        return r.feature === rec.feature && r.phase !== "summary";
+      }).sort(function (a, b) { return new Date(b.ts) - new Date(a.ts); });
+      return prior.length ? prior[0].phase : "discovery";
+    }
+
+    document.querySelectorAll(".col").forEach(function (col) {
+      // Clear any prior cards but keep heading.
+      var h3 = col.querySelector("h3");
+      col.innerHTML = "";
+      col.appendChild(h3);
+    });
+
+    Object.keys(byFeature).forEach(function (feat) {
+      var rec = byFeature[feat];
+      var phase = displayPhase(rec);
+      var col = document.querySelector('.col[data-phase="' + phase + '"]');
+      if (!col) return;
+
+      var totals = totalsByFeature[feat] || { tokens: 0, files: 0 };
+      var card = document.createElement("div");
+      card.className = "card";
+
+      var badge = document.createElement("span");
+      var agentClass = (rec.agent || "unknown").replace(/[^a-z0-9\-]/gi, "");
+      badge.className = "badge " + (
+        agentClass === "rails-dev" || agentClass === "solidity-dev"
+          || agentClass === "client-manager" || agentClass === "devops"
+          ? agentClass : "unknown"
+      );
+      badge.textContent = rec.agent || "unknown";
+      card.appendChild(badge);
+
+      var feat_el = document.createElement("div");
+      feat_el.className = "feat";
+      feat_el.textContent = feat;
+      card.appendChild(feat_el);
+
+      var meta = document.createElement("div");
+      meta.className = "meta";
+      var when = new Date(rec.ts);
+      meta.innerHTML =
+        '<span>' + shortDate(when) + '</span>'
+        + '<span>' + fmtTokens(totals.tokens) + ' tok</span>'
+        + (rec.commit ? '<span>' + escapeHtml(rec.commit.slice(0, 7)) + '</span>' : '')
+        + (rec.pr ? '<span><a href="' + escapeHtml(rec.pr) + '" target="_blank" rel="noopener">PR</a></span>' : '');
+      card.appendChild(meta);
+
+      col.appendChild(card);
+    });
+  }
+
+  // ---------- 6. Token use by agent ----------
+  function renderAgentBar(records) {
+    var weekStart = new Date(Date.now() - 7 * 86400000);
+    var byAgent = {};
+    records.forEach(function (r) {
+      if (new Date(r.ts) < weekStart) return;
+      byAgent[r.agent || "unknown"] = (byAgent[r.agent || "unknown"] || 0) + (r.tokens || 0);
+    });
+    var total = Object.keys(byAgent).reduce(function (s, k) { return s + byAgent[k]; }, 0);
+
+    var bar = document.getElementById("agent-bar");
+    var key = document.getElementById("agent-bar-key");
+    bar.innerHTML = "";
+    key.innerHTML = "";
+
+    if (!total) {
+      bar.innerHTML = '<div style="background:var(--line);width:100%"></div>';
+      key.textContent = "no data this week";
+      return;
+    }
+
+    var palette = {
+      "rails-dev":      "var(--c-agent-rails)",
+      "solidity-dev":   "var(--c-agent-solidity)",
+      "client-manager": "var(--c-agent-client-manager)",
+      "devops":         "var(--c-agent-devops)"
+    };
+    Object.keys(byAgent).sort().forEach(function (a) {
+      var pct = (byAgent[a] / total) * 100;
+      var color = palette[a] || "var(--c-agent-unknown)";
+      var slice = document.createElement("div");
+      slice.style.width = pct.toFixed(2) + "%";
+      slice.style.background = color;
+      slice.title = a + " -- " + fmtTokens(byAgent[a]) + " tok";
+      bar.appendChild(slice);
+
+      var k = document.createElement("span");
+      k.innerHTML = '<span class="sw" style="background:' + color + '"></span>'
+        + escapeHtml(a) + " " + fmtTokens(byAgent[a]);
+      key.appendChild(k);
+    });
+  }
+
+  // ---------- 7. Top 5 tools ----------
+  function renderToolbar(records) {
+    var totals = {};
+    records.forEach(function (r) {
+      if (!r.tools) return;
+      Object.keys(r.tools).forEach(function (k) {
+        totals[k] = (totals[k] || 0) + r.tools[k];
+      });
+    });
+    var arr = Object.keys(totals).map(function (k) { return { name: k, count: totals[k] }; });
+    arr.sort(function (a, b) { return b.count - a.count; });
+    arr = arr.slice(0, 5);
+    var max = arr.length ? arr[0].count : 0;
+
+    var el = document.getElementById("toolbar");
+    el.innerHTML = "";
+    if (!arr.length) {
+      el.textContent = "no tool data yet";
+      return;
+    }
+    arr.forEach(function (row) {
+      var pct = max ? (row.count / max) * 100 : 0;
+      var line = document.createElement("div");
+      line.className = "toolrow";
+      line.innerHTML =
+        '<div class="name">' + escapeHtml(row.name) + '</div>'
+        + '<div class="bar"><span style="width:' + pct.toFixed(1) + '%"></span></div>'
+        + '<div class="val">' + row.count + '</div>';
+      el.appendChild(line);
+    });
+  }
+
+  // ---------- 8. Boot ----------
+  document.addEventListener("DOMContentLoaded", function () {
+    var records = loadLedger();
+    renderHeader(records);
+    renderTimeline(records);
+    renderKanban(records);
+    renderAgentBar(records);
+    renderToolbar(records);
+  });
+})();
+</script>
+
+</body>
+</html>

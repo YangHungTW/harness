@@ -1,0 +1,54 @@
+{
+  "description": "yang-toolkit observability hooks: log tool calls, track current agent, append ledger summaries, and passively record nested-folder CLAUDE.md gap candidates.",
+  "_comment_planned": "TODO: add UserPromptSubmit (capture intent), PostToolUseFailure (capture failures), Setup (warm directory create) once base flow is verified.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/log-tool-call.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "_comment": "Passive CLAUDE.md gap detector: on Edit/Write/MultiEdit in a nested folder, score the folder against the heuristic and append a pending candidate to .claude/state/claude-md-candidates.jsonl. NEVER generates a CLAUDE.md -- /claude-md-gaps handles that, gated on user confirmation.",
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/record-claude-md-candidate.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/update-current-agent.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/append-ledger.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "_comment": "Plugin-bundled settings. Currently only `agent` and `subagentStatusLine` keys are honored by Claude Code (as of 2026-05). Main statusline must be wired in user `~/.claude/settings.json` -- see README.",
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "${CLAUDE_PLUGIN_ROOT}/statusline/statusline.sh"
+  }
+}

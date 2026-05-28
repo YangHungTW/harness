@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "harness",
+  "description": "YANG's personal Claude Code marketplace: daily-ops skills and a four-tier observability stack (statusline -> docs/decisions -> ledger.jsonl -> cross-repo week report). No bundled agents -- Claude Code auto-routes; install agents per-repo as needed.",
+  "owner": {
+    "name": "YANG",
+    "email": "yang.hung.tw@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "yang-toolkit",
+      "description": "YANG's personal toolkit: daily-ops skills + 4-tier observability layer + nested CLAUDE.md gap detection. Bring your own agents.",
+      "author": {
+        "name": "YANG"
+      },
+      "category": "productivity",
+      "source": {
+        "source": "./plugins/yang-toolkit"
+      },
+      "homepage": "https://github.com/YangHungTW/harness"
+    }
+  ]
+}
