@@ -6,6 +6,7 @@
     "name": "YANG",
     "email": "yang.hung.tw@gmail.com"
   },
+  "allowCrossMarketplaceDependenciesOn": ["claude-plugins-official"],
   "plugins": [
     {
       "name": "yang-toolkit",

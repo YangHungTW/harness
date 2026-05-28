@@ -60,6 +60,17 @@ hook and show up in the statusline / dashboard automatically.
 /plugin install yang-toolkit@harness
 ```
 
+Installing `yang-toolkit` auto-installs two upstream dependencies from the
+`claude-plugins-official` marketplace (which auto-loads in every Claude Code):
+
+| Auto-installed dependency | Used by harness for |
+| ------------------------- | ------------------- |
+| `feature-dev`             | the `/yang-toolkit:feature-dev-tracked` wrapper delegates to its `/feature-dev` command |
+| `claude-md-management`    | the `/yang-toolkit:claude-md-gaps` flow delegates to its `/revise-claude-md` command for nested-folder generation |
+
+Claude Code lists both at the end of the install output. You can confirm with
+`claude plugin list` afterward.
+
 To use `statusline.sh` as the **main** Claude Code statusline (it's already
 wired as `subagentStatusLine`), add to your `~/.claude/settings.json`:
 
