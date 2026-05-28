@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>harness // usage</title>
+<style>
+  :root {
+    --bg:       #0c0e12;
+    --panel:    #14171d;
+    --panel-2:  #1a1f27;
+    --line:     #232a35;
+    --text:     #d7dde6;
+    --muted:    #7b8594;
+    --accent:   #7aa7ff;
+    --accent-2: #b6f0a4;
+    --warn:     #facc15;
+    --bad:      #f87171;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 28px 22px 100px;
+  }
+
+  /* header */
+  header.hdr {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 14px;
+    margin-bottom: 20px;
+  }
+  .hdr-title {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .hdr-title .slash { color: var(--muted); }
+  .hdr-title .what { color: var(--accent); }
+  .badge {
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 2px 7px;
+  }
+
+  /* nav */
+  nav.toc {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 12px 14px;
+    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 12px;
+  }
+  nav.toc .label { color: var(--muted); margin-right: 6px; }
+  nav.toc a { color: var(--text); }
+  nav.toc a:hover { color: var(--accent); }
+
+  /* sections */
+  section { margin: 36px 0; }
+  section h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent-2);
+    margin: 0 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--line);
+  }
+  section h2 .n {
+    color: var(--muted);
+    font-weight: 400;
+    margin-right: 8px;
+  }
+  section h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 18px 0 8px;
+  }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+
+  /* code */
+  pre, code {
+    font-family: inherit;
+  }
+  pre {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin: 10px 0;
+  }
+  code:not(pre code) {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--text);
+    font-size: inherit;
+  }
+  .cmd-comment { color: var(--muted); }
+  .cmd-flag    { color: var(--warn); }
+  .cmd-str     { color: var(--accent-2); }
+
+  /* tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 12.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    color: var(--muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--line);
+  }
+  tr:last-child td { border-bottom: none; }
+
+  /* callouts */
+  .callout {
+    background: var(--panel);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .callout strong { color: var(--text); }
+  .callout.warn { border-left-color: var(--warn); }
+
+  /* decision tree */
+  .tree {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 14px 16px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    white-space: pre;
+    overflow-x: auto;
+    color: var(--text);
+  }
+  .tree .q   { color: var(--accent); }
+  .tree .cmd { color: var(--accent-2); }
+  .tree .note { color: var(--muted); }
+
+  /* mental model footer */
+  .model {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px 18px;
+    margin-top: 14px;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .model b { color: var(--accent-2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hdr">
+  <div class="hdr-title">
+    harness <span class="slash">//</span> <span class="what">usage</span>
+  </div>
+  <span class="badge">yang-toolkit v0.4.0</span>
+  <span class="badge">2026-05-28</span>
+  <span class="badge" style="margin-left:auto;"><b style="color:var(--text);">EN</b> · <a href="usage.zh.html">中文</a></span>
+</header>
+
+<nav class="toc">
+  <span class="label">jump to:</span>
+  <a href="#decide">1. which command?</a>
+  <a href="#plan-first">2. plan-first</a>
+  <a href="#direct">3. direct</a>
+  <a href="#close">4. closing</a>
+  <a href="#anytime">5. anytime</a>
+  <a href="#passive">6. passive</a>
+  <a href="#builtins">7. cc built-ins</a>
+  <a href="#files">8. files</a>
+  <a href="#model">9. mental model</a>
+</nav>
+
+<!-- 1 -->
+<section id="decide">
+  <h2><span class="n">1.</span>Which command should I run?</h2>
+
+<div class="tree"><span class="q">START</span>: I want to begin a feature.
+  │
+  ├─ Need a reviewable plan first, or this feature depends on
+  │  another that's still in-flight?
+  │
+  │     <span class="q">YES</span> → <span class="cmd">/yang-toolkit:plan-feature "&lt;desc&gt;"</span>
+  │             ↓ <span class="note">(review .claude/plans/&lt;slug&gt;.md, edit if needed)</span>
+  │           <span class="cmd">/yang-toolkit:execute-plan</span>
+  │             ↓ <span class="note">(auto-delegates to tdd-feature or feature-dev-tracked)</span>
+  │
+  └─ <span class="q">NO</span>, just start cycling:
+        │
+        ├─ Need TDD discipline?  → <span class="cmd">/yang-toolkit:tdd-feature "&lt;desc&gt;"</span>
+        └─ No TDD                → <span class="cmd">/yang-toolkit:feature-dev-tracked "&lt;desc&gt;"</span>
+</div>
+
+  <div class="callout">
+    <strong>Rule of thumb.</strong>
+    Plan-first when the work is large enough that a teammate (or future-you)
+    will want to see the plan in a PR. Direct flow when you already know
+    exactly what to build.
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="plan-first">
+  <h2><span class="n">2.</span>Plan-first flow (new in v0.4.0)</h2>
+
+  <h3>Step 1 — draft the plan</h3>
+<pre><span class="cmd-comment"># Pulls relevant past context from ledger + CLAUDE.md + decision dirs.
+# Writes .claude/plans/&lt;slug&gt;.md with auto-generated Memory References.</span>
+/yang-toolkit:plan-feature <span class="cmd-str">"Add cancellation policy UI to booking flow"</span></pre>
+
+  <p>Then open the produced file and edit:</p>
+  <ul>
+    <li><code>Acceptance Criteria</code> — each item needs <code>Check:</code> (a runnable command in backticks) and <code>Pass:</code> (an observable condition; no fuzzy words like <em>good</em>/<em>nice</em>/<em>clean</em>).</li>
+    <li><code>Files Touched</code> — paths or globs. Used both as scope guard and as work-split when running in team mode.</li>
+    <li>Frontmatter — confirm <code>discipline</code> (<code>tdd</code> | <code>normal</code>) and <code>orchestration</code> (<code>single</code> | <code>team</code>).</li>
+  </ul>
+
+  <h3>Step 2 — dry-run to inspect the /goal it'll set</h3>
+<pre>/yang-toolkit:execute-plan <span class="cmd-flag">--dry-run</span></pre>
+  <p>Prints the parsed criteria, the assembled <code>/goal</code> condition, and the downstream command that would be invoked. No state is changed.</p>
+
+  <h3>Step 3 — execute</h3>
+<pre>/yang-toolkit:execute-plan</pre>
+  <p>Sets <code>/goal</code> from the criteria, switches plan <code>status: executing</code>, delegates to <code>tdd-feature</code> or <code>feature-dev-tracked</code> based on <code>discipline</code>. On completion, writes a <code>## Execution Log</code> block back into the plan and appends one ledger record with <code>plan_path</code>, <code>goal_turns</code>, <code>orchestration</code>.</p>
+
+  <h3>Revising or replanning</h3>
+  <table>
+    <thead><tr><th>Command</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td><code>/yang-toolkit:plan-feature --revise &lt;slug&gt;</code></td><td>Append a <code>## Revision N</code> block; preserve original; refresh <code>&lt;!--auto--&gt;</code> Memory References, keep user-added ones.</td></tr>
+      <tr><td><code>/yang-toolkit:plan-feature --from &lt;slug&gt;</code></td><td>Replan from scratch (overwrites the file after confirmation).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Execute overrides</h3>
+  <table>
+    <thead><tr><th>Flag</th><th>Use when</th></tr></thead>
+    <tbody>
+      <tr><td><code>--from &lt;slug&gt;</code></td><td>Run an explicit plan instead of the most-recent draft.</td></tr>
+      <tr><td><code>--single</code> / <code>--team</code></td><td>Override the plan's <code>orchestration</code> for this run only.</td></tr>
+      <tr><td><code>--no-goal</code></td><td>Skip <code>/goal</code> setup; you control turn-by-turn.</td></tr>
+      <tr><td><code>--ignore-deps</code></td><td>Proceed even if <code>depends_on</code> items aren't <code>done</code> (recorded in ledger).</td></tr>
+      <tr><td><code>--dry-run</code></td><td>Parse + show /goal + show delegate target; no execution.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn">
+    <strong>Fuzzy-word lint.</strong>
+    <code>/execute-plan</code> rejects any <code>Pass:</code> line containing
+    <code>good</code>, <code>acceptable</code>, <code>nice</code>,
+    <code>clean</code>, <code>mostly</code>, <code>properly</code>,
+    <code>correctly</code>, <code>robust</code>, <code>performant</code>,
+    <code>scalable</code>, <code>maintainable</code>, <code>sufficient</code>,
+    <code>reasonable</code>. Override the whole list with
+    <code>.claude/plans/.fuzzy-words</code> (one entry per line; replaces, doesn't merge).
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="direct">
+  <h2><span class="n">3.</span>Direct flow (no plan stage)</h2>
+
+  <p>Same as before v0.4.0 — unchanged. Use these when the feature is small enough that a plan artifact is overhead.</p>
+
+<pre><span class="cmd-comment"># Regular</span>
+/yang-toolkit:feature-dev-tracked <span class="cmd-str">"Add cancellation policy UI"</span>
+
+<span class="cmd-comment"># TDD discipline</span>
+/yang-toolkit:tdd-feature <span class="cmd-str">"Add cancellation policy UI"</span>
+
+<span class="cmd-comment"># Pick up a paused feature-dev-tracked session and continue with TDD</span>
+/yang-toolkit:tdd-feature   <span class="cmd-comment"># reads .claude/state/current-feature.txt</span></pre>
+
+  <p>Both write per-phase decision docs under <code>docs/decisions/{date}-{slug}/</code> and append one ledger record on completion.</p>
+</section>
+
+<!-- 4 -->
+<section id="close">
+  <h2><span class="n">4.</span>Closing the loop</h2>
+
+<pre><span class="cmd-comment"># From commit-commands plugin</span>
+/commit
+/push
+/create-pr
+
+<span class="cmd-comment"># After the PR is merged, flip outcome + add PR URL + commit SHA</span>
+/yang-toolkit:ledger-append
+
+<span class="cmd-comment"># Preview before writing</span>
+/yang-toolkit:ledger-append <span class="cmd-flag">--dry-run</span></pre>
+</section>
+
+<!-- 5 -->
+<section id="anytime">
+  <h2><span class="n">5.</span>Anytime (read data)</h2>
+  <table>
+    <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>/yang-toolkit:today</code></td><td>Daily digest aggregating external surfaces (GitHub/Jira/Slack) + every tracked repo's recent ledger entries.</td></tr>
+      <tr><td><code>/yang-toolkit:week</code></td><td>Cross-repo weekly report from <code>~/.config/harness/repos.json</code>.</td></tr>
+      <tr><td><code>/yang-toolkit:dashboard</code></td><td>Render <code>.claude/ledger.jsonl</code> to <code>.claude/dashboard.html</code> (timeline + kanban + stats).</td></tr>
+      <tr><td><code>/yang-toolkit:claude-md-gaps</code></td><td>Review nested-folder <code>CLAUDE.md</code> candidates the passive hook flagged. Gated on accept.</td></tr>
+      <tr><td><code>/yang-toolkit:curate-claude-md</code></td><td>Audit + reorganize existing <code>CLAUDE.md</code> files (technical rules drift up, business rules drift down).</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 6 -->
+<section id="passive">
+  <h2><span class="n">6.</span>Passive (no commands; just runs)</h2>
+  <table>
+    <thead><tr><th>Trigger</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td>Every tool call (<code>PreToolUse</code>)</td><td>Append to <code>.claude/logs/session-YYYYMMDD.jsonl</code>.</td></tr>
+      <tr><td>Edit / Write / MultiEdit (<code>PostToolUse</code>)</td><td>Score the touched folder for <code>CLAUDE.md</code> need → <code>.claude/state/claude-md-candidates.jsonl</code>.</td></tr>
+      <tr><td>Edit production code without touching its test mirror</td><td>Inject a one-time reminder into Claude's next-turn context (per-session dedupe). Disable with <code>HARNESS_DISABLE_TEST_PARITY=1</code>.</td></tr>
+      <tr><td>Subagent finishes (<code>SubagentStop</code>)</td><td>Write current agent name to <code>.claude/state/current-agent.txt</code> (drives statusline + dashboard).</td></tr>
+      <tr><td>Session ends (<code>Stop</code>)</td><td>Append summary to <code>.claude/ledger.jsonl</code> with <code>outcome: in-progress</code>.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 7 -->
+<section id="builtins">
+  <h2><span class="n">7.</span>Claude Code built-ins worth pairing</h2>
+  <p>These aren't part of the toolkit but the new plan flow leans on them.</p>
+<pre><span class="cmd-comment"># Plan mode</span>
+claude <span class="cmd-flag">--permission-mode</span> plan        <span class="cmd-comment"># on launch</span>
+Shift+Tab                            <span class="cmd-comment"># toggle mid-session</span>
+
+<span class="cmd-comment"># /goal — auto-loop until a condition holds (execute-plan uses this internally)</span>
+/goal <span class="cmd-str">&lt;condition&gt;</span>
+/goal                                <span class="cmd-comment"># show status</span>
+/goal clear                          <span class="cmd-comment"># cancel</span>
+
+<span class="cmd-comment"># Parallel sessions</span>
+claude <span class="cmd-flag">--worktree</span> <span class="cmd-str">feature-auth</span>
+claude <span class="cmd-flag">--continue</span>                   <span class="cmd-comment"># resume most-recent session</span>
+claude <span class="cmd-flag">--resume</span>                     <span class="cmd-comment"># pick from list</span></pre>
+  <div class="callout">
+    <strong>Agent teams</strong> (used when a plan has <code>orchestration: team</code>)
+    require <code>CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</code> in env or settings.
+    Without it, <code>execute-plan</code> warns and falls back to <code>single</code>.
+  </div>
+</section>
+
+<!-- 8 -->
+<section id="files">
+  <h2><span class="n">8.</span>Per-repo file layout</h2>
+<pre>client-repo/
+├── .claude/
+│   ├── ledger.jsonl       <span class="cmd-comment"># COMMIT — cross-feature memory</span>
+│   ├── plans/             <span class="cmd-comment"># COMMIT — reviewable plan artifacts</span>
+│   │   ├── &lt;slug&gt;.md      <span class="cmd-comment"># one per planned feature; status tracks lifecycle</span>
+│   │   └── .fuzzy-words   <span class="cmd-comment"># OPTIONAL — override default fuzzy-word lint</span>
+│   ├── logs/              <span class="cmd-comment"># gitignore — noisy per-session tool calls</span>
+│   ├── state/             <span class="cmd-comment"># gitignore — ephemeral</span>
+│   │   ├── current-agent.txt
+│   │   ├── current-feature.txt            <span class="cmd-comment"># set by feature-dev-tracked / execute-plan</span>
+│   │   ├── claude-md-candidates.jsonl     <span class="cmd-comment"># pending CLAUDE.md proposals</span>
+│   │   └── test-parity-warned-YYYYMMDD.txt
+│   └── dashboard.html     <span class="cmd-comment"># gitignore — regenerable</span>
+└── docs/decisions/        <span class="cmd-comment"># COMMIT — per-feature decision trail</span>
+    └── 2026-05-28-&lt;slug&gt;/
+        ├── 01-discovery.md
+        ├── 02-architecture.md
+        ├── 02b-test-plan.md      <span class="cmd-comment"># TDD only</span>
+        ├── 03-implementation.md  <span class="cmd-comment"># or 03-tdd-cycles.md</span>
+        ├── 04-review.md
+        └── 05-summary.md         <span class="cmd-comment"># terminal — re-entry refused</span>
+</pre>
+
+  <p>Add to the repo's <code>.gitignore</code>:</p>
+<pre>.claude/logs/
+.claude/state/
+.claude/dashboard.html</pre>
+</section>
+
+<!-- 9 -->
+<section id="model">
+  <h2><span class="n">9.</span>Mental model</h2>
+  <div class="model">
+    <b>plan</b> = WHY / WHAT, the part a reviewer reads.<br/>
+    <b>decision dir</b> = HOW, the per-phase process record.<br/>
+    <b>ledger</b> = cross-feature statistics.<br/>
+    <b>CLAUDE.md</b> = rules that have crystallised out of past work.<br/><br/>
+    <code>/plan-feature</code> writes the first.
+    <code>/execute-plan</code> connects all four — it produces the decision dir
+    (via delegation), appends to the ledger on close-out, and triggers
+    <code>curate-claude-md</code> so learnings flow back into the rules.
+  </div>
+
+  <p style="color:var(--muted); margin-top:18px; font-size:12px;">
+    Source: <code>plugins/yang-toolkit/commands/*.md</code> · See <code>README.md</code> for installation, hooks detail, ledger schema, observability tiers.
+  </p>
+</section>
+
+</div>
+</body>
+</html>

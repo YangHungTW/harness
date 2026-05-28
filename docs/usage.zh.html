@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>harness // 使用說明</title>
+<style>
+  :root {
+    --bg:       #0c0e12;
+    --panel:    #14171d;
+    --panel-2:  #1a1f27;
+    --line:     #232a35;
+    --text:     #d7dde6;
+    --muted:    #7b8594;
+    --accent:   #7aa7ff;
+    --accent-2: #b6f0a4;
+    --warn:     #facc15;
+    --bad:      #f87171;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                 "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", monospace;
+    font-size: 13px;
+    line-height: 1.65;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 28px 22px 100px;
+  }
+
+  /* header */
+  header.hdr {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 14px;
+    margin-bottom: 20px;
+  }
+  .hdr-title {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .hdr-title .slash { color: var(--muted); }
+  .hdr-title .what { color: var(--accent); }
+  .badge {
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 2px 7px;
+  }
+
+  /* nav */
+  nav.toc {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 12px 14px;
+    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 12px;
+  }
+  nav.toc .label { color: var(--muted); margin-right: 6px; }
+  nav.toc a { color: var(--text); }
+  nav.toc a:hover { color: var(--accent); }
+
+  /* sections */
+  section { margin: 36px 0; }
+  section h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent-2);
+    margin: 0 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--line);
+  }
+  section h2 .n {
+    color: var(--muted);
+    font-weight: 400;
+    margin-right: 8px;
+  }
+  section h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 18px 0 8px;
+  }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+
+  /* code */
+  pre, code {
+    font-family: inherit;
+  }
+  pre {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin: 10px 0;
+  }
+  code:not(pre code) {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--text);
+    font-size: inherit;
+  }
+  .cmd-comment { color: var(--muted); }
+  .cmd-flag    { color: var(--warn); }
+  .cmd-str     { color: var(--accent-2); }
+
+  /* tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 12.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    color: var(--muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--line);
+  }
+  tr:last-child td { border-bottom: none; }
+
+  /* callouts */
+  .callout {
+    background: var(--panel);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .callout strong { color: var(--text); }
+  .callout.warn { border-left-color: var(--warn); }
+
+  /* decision tree */
+  .tree {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 14px 16px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    white-space: pre;
+    overflow-x: auto;
+    color: var(--text);
+  }
+  .tree .q   { color: var(--accent); }
+  .tree .cmd { color: var(--accent-2); }
+  .tree .note { color: var(--muted); }
+
+  /* mental model footer */
+  .model {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px 18px;
+    margin-top: 14px;
+    font-size: 13px;
+    line-height: 1.85;
+  }
+  .model b { color: var(--accent-2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hdr">
+  <div class="hdr-title">
+    harness <span class="slash">//</span> <span class="what">使用說明</span>
+  </div>
+  <span class="badge">yang-toolkit v0.4.0</span>
+  <span class="badge">2026-05-28</span>
+  <span class="badge" style="margin-left:auto;"><a href="usage.html">EN</a> · <b style="color:var(--text);">中文</b></span>
+</header>
+
+<nav class="toc">
+  <span class="label">快速跳轉：</span>
+  <a href="#decide">1. 該下哪個指令</a>
+  <a href="#plan-first">2. 計畫先行</a>
+  <a href="#direct">3. 直接動手</a>
+  <a href="#close">4. 收尾</a>
+  <a href="#anytime">5. 隨時可用</a>
+  <a href="#passive">6. 被動觸發</a>
+  <a href="#builtins">7. CC 內建搭配</a>
+  <a href="#files">8. 檔案配置</a>
+  <a href="#model">9. 心智模型</a>
+</nav>
+
+<!-- 1 -->
+<section id="decide">
+  <h2><span class="n">1.</span>該下哪個指令？</h2>
+
+<div class="tree"><span class="q">起點</span>：我要開始一個 feature。
+  │
+  ├─ 需要先寫一份可以被 review 的計畫？
+  │  或這個 feature 依賴另一個還沒做完的 feature？
+  │
+  │     <span class="q">YES</span> → <span class="cmd">/yang-toolkit:plan-feature "&lt;描述&gt;"</span>
+  │             ↓ <span class="note">(打開 .claude/plans/&lt;slug&gt;.md 檢視、視需要編輯)</span>
+  │           <span class="cmd">/yang-toolkit:execute-plan</span>
+  │             ↓ <span class="note">(自動委派給 tdd-feature 或 feature-dev-tracked)</span>
+  │
+  └─ <span class="q">NO</span>，直接開始 cycling：
+        │
+        ├─ 需要 TDD 紀律？ → <span class="cmd">/yang-toolkit:tdd-feature "&lt;描述&gt;"</span>
+        └─ 不用           → <span class="cmd">/yang-toolkit:feature-dev-tracked "&lt;描述&gt;"</span>
+</div>
+
+  <div class="callout">
+    <strong>判斷原則。</strong>
+    工作大到隊友（或未來的自己）會想在 PR 裡看到計畫 → 走計畫先行。
+    已經很清楚要做什麼 → 直接動手。
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="plan-first">
+  <h2><span class="n">2.</span>計畫先行流程（v0.4.0 新增）</h2>
+
+  <h3>Step 1 — 起草計畫</h3>
+<pre><span class="cmd-comment"># 自動撈 ledger + CLAUDE.md + decision dirs 的相關過往。
+# 寫出 .claude/plans/&lt;slug&gt;.md，含自動生成的 Memory References。</span>
+/yang-toolkit:plan-feature <span class="cmd-str">"Add cancellation policy UI to booking flow"</span></pre>
+
+  <p>打開檔案編輯：</p>
+  <ul>
+    <li><code>Acceptance Criteria</code>（驗收條件）— 每條都要有 <code>Check:</code>（包在 backtick 裡的可執行命令）跟 <code>Pass:</code>（可觀測條件；不能用模糊詞如 <em>good</em>、<em>nice</em>、<em>clean</em>）。</li>
+    <li><code>Files Touched</code>（涉及檔案）— 路徑或 glob。同時作為範圍守衛、以及 team mode 下的分工依據。</li>
+    <li>frontmatter — 確認 <code>discipline</code>（<code>tdd</code> | <code>normal</code>）和 <code>orchestration</code>（<code>single</code> | <code>team</code>）。</li>
+  </ul>
+
+  <h3>Step 2 — dry-run 看會下什麼 /goal</h3>
+<pre>/yang-toolkit:execute-plan <span class="cmd-flag">--dry-run</span></pre>
+  <p>印出解析後的 criteria、組好的 <code>/goal</code> condition、會委派到哪個下游指令。不改任何狀態。</p>
+
+  <h3>Step 3 — 真的執行</h3>
+<pre>/yang-toolkit:execute-plan</pre>
+  <p>設好 <code>/goal</code>、把 plan 狀態改成 <code>executing</code>、依 <code>discipline</code> 委派到 <code>tdd-feature</code> 或 <code>feature-dev-tracked</code>。完成時把 <code>## Execution Log</code> 區塊寫回 plan，並 append 一筆 ledger record（多 <code>plan_path</code>、<code>goal_turns</code>、<code>orchestration</code> 三個欄位）。</p>
+
+  <h3>修訂或重新規劃</h3>
+  <table>
+    <thead><tr><th>指令</th><th>效果</th></tr></thead>
+    <tbody>
+      <tr><td><code>/yang-toolkit:plan-feature --revise &lt;slug&gt;</code></td><td>追加 <code>## Revision N</code> 區塊；保留原文；refresh <code>&lt;!--auto--&gt;</code> 的 Memory References，保留 user 加的 bullet。</td></tr>
+      <tr><td><code>/yang-toolkit:plan-feature --from &lt;slug&gt;</code></td><td>從頭重寫（確認後覆蓋整份檔案）。</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Execute 的 override flag</h3>
+  <table>
+    <thead><tr><th>Flag</th><th>使用時機</th></tr></thead>
+    <tbody>
+      <tr><td><code>--from &lt;slug&gt;</code></td><td>指定執行某個 plan，不要拿最新的 draft。</td></tr>
+      <tr><td><code>--single</code> / <code>--team</code></td><td>本次蓋掉 plan 內的 <code>orchestration</code>。</td></tr>
+      <tr><td><code>--no-goal</code></td><td>不設 <code>/goal</code>，由你自己 step through。</td></tr>
+      <tr><td><code>--ignore-deps</code></td><td>強制執行，即使 <code>depends_on</code> 還沒 <code>done</code>（會記在 ledger）。</td></tr>
+      <tr><td><code>--dry-run</code></td><td>解析 + 顯示 /goal + 顯示委派目標；不執行。</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn">
+    <strong>模糊詞檢查。</strong>
+    <code>/execute-plan</code> 會拒絕 <code>Pass:</code> 行含有：
+    <code>good</code>、<code>acceptable</code>、<code>nice</code>、
+    <code>clean</code>、<code>mostly</code>、<code>properly</code>、
+    <code>correctly</code>、<code>robust</code>、<code>performant</code>、
+    <code>scalable</code>、<code>maintainable</code>、<code>sufficient</code>、
+    <code>reasonable</code>。要客製化整個 list 就建立
+    <code>.claude/plans/.fuzzy-words</code>（一行一個，**取代**預設不合併）。
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="direct">
+  <h2><span class="n">3.</span>直接動手流程（沒有 plan 階段）</h2>
+
+  <p>v0.4.0 之前的用法 — 沒變。Feature 小到不需要 plan artifact 時用這個。</p>
+
+<pre><span class="cmd-comment"># 一般</span>
+/yang-toolkit:feature-dev-tracked <span class="cmd-str">"Add cancellation policy UI"</span>
+
+<span class="cmd-comment"># TDD 紀律</span>
+/yang-toolkit:tdd-feature <span class="cmd-str">"Add cancellation policy UI"</span>
+
+<span class="cmd-comment"># 接續一個暫停的 feature-dev-tracked，轉入 TDD</span>
+/yang-toolkit:tdd-feature   <span class="cmd-comment"># 讀 .claude/state/current-feature.txt</span></pre>
+
+  <p>兩條都會在 <code>docs/decisions/{date}-{slug}/</code> 寫各 phase 的決策文件，並在完成時 append 一筆 ledger record。</p>
+</section>
+
+<!-- 4 -->
+<section id="close">
+  <h2><span class="n">4.</span>收尾</h2>
+
+<pre><span class="cmd-comment"># 來自 commit-commands plugin</span>
+/commit
+/push
+/create-pr
+
+<span class="cmd-comment"># PR 合併後，把 outcome 改成 merged + 補 PR URL + commit SHA</span>
+/yang-toolkit:ledger-append
+
+<span class="cmd-comment"># 寫之前先 preview</span>
+/yang-toolkit:ledger-append <span class="cmd-flag">--dry-run</span></pre>
+</section>
+
+<!-- 5 -->
+<section id="anytime">
+  <h2><span class="n">5.</span>隨時可用（讀資料）</h2>
+  <table>
+    <thead><tr><th>指令</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td><code>/yang-toolkit:today</code></td><td>當日摘要：聚合 GitHub / Jira / Slack 等外部 surface + 所有追蹤 repo 的最近 ledger entries。</td></tr>
+      <tr><td><code>/yang-toolkit:week</code></td><td>跨 repo 週報，來源是 <code>~/.config/harness/repos.json</code>。</td></tr>
+      <tr><td><code>/yang-toolkit:dashboard</code></td><td>把 <code>.claude/ledger.jsonl</code> 渲成 <code>.claude/dashboard.html</code>（timeline + kanban + stats）。</td></tr>
+      <tr><td><code>/yang-toolkit:claude-md-gaps</code></td><td>檢視被動 hook 累積的 nested <code>CLAUDE.md</code> 候選。要 user accept 才會真的寫檔。</td></tr>
+      <tr><td><code>/yang-toolkit:curate-claude-md</code></td><td>稽核並重整既有 <code>CLAUDE.md</code>（技術規則往上漂、業務規則往下沉）。</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 6 -->
+<section id="passive">
+  <h2><span class="n">6.</span>被動觸發（不用下指令）</h2>
+  <table>
+    <thead><tr><th>觸發點</th><th>動作</th></tr></thead>
+    <tbody>
+      <tr><td>每次 tool call（<code>PreToolUse</code>）</td><td>append 到 <code>.claude/logs/session-YYYYMMDD.jsonl</code>。</td></tr>
+      <tr><td>Edit / Write / MultiEdit（<code>PostToolUse</code>）</td><td>評分當前 folder 對 <code>CLAUDE.md</code> 的需要 → <code>.claude/state/claude-md-candidates.jsonl</code>。</td></tr>
+      <tr><td>改了 production code 沒動測試</td><td>下一輪 context 注入一次性提醒（per-session 去重）。設 <code>HARNESS_DISABLE_TEST_PARITY=1</code> 可關。</td></tr>
+      <tr><td>Subagent 結束（<code>SubagentStop</code>）</td><td>把當前 agent 名稱寫到 <code>.claude/state/current-agent.txt</code>（餵 statusline + dashboard）。</td></tr>
+      <tr><td>Session 結束（<code>Stop</code>）</td><td>append 摘要到 <code>.claude/ledger.jsonl</code>，<code>outcome: in-progress</code>。</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 7 -->
+<section id="builtins">
+  <h2><span class="n">7.</span>值得搭配的 Claude Code 內建</h2>
+  <p>不是 toolkit 的一部分，但新的 plan flow 會用到。</p>
+<pre><span class="cmd-comment"># Plan mode</span>
+claude <span class="cmd-flag">--permission-mode</span> plan        <span class="cmd-comment"># 啟動時</span>
+Shift+Tab                            <span class="cmd-comment"># session 中切換</span>
+
+<span class="cmd-comment"># /goal — 自動 loop 到條件成立（execute-plan 內部就用這個）</span>
+/goal <span class="cmd-str">&lt;condition&gt;</span>
+/goal                                <span class="cmd-comment"># 看狀態</span>
+/goal clear                          <span class="cmd-comment"># 取消</span>
+
+<span class="cmd-comment"># 平行 session</span>
+claude <span class="cmd-flag">--worktree</span> <span class="cmd-str">feature-auth</span>
+claude <span class="cmd-flag">--continue</span>                   <span class="cmd-comment"># 接最近一個 session</span>
+claude <span class="cmd-flag">--resume</span>                     <span class="cmd-comment"># 從清單選</span></pre>
+  <div class="callout">
+    <strong>Agent teams</strong>（當 plan 設 <code>orchestration: team</code> 時用）
+    需要 env 或 settings 裡有 <code>CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</code>。
+    沒設的話，<code>execute-plan</code> 會警告並 fallback 到 <code>single</code>。
+  </div>
+</section>
+
+<!-- 8 -->
+<section id="files">
+  <h2><span class="n">8.</span>每個 repo 的檔案配置</h2>
+<pre>client-repo/
+├── .claude/
+│   ├── ledger.jsonl       <span class="cmd-comment"># COMMIT — 跨 feature 的專案記憶</span>
+│   ├── plans/             <span class="cmd-comment"># COMMIT — 可 review 的計畫 artifact</span>
+│   │   ├── &lt;slug&gt;.md      <span class="cmd-comment"># 每個被規劃的 feature 一份；status 追蹤生命週期</span>
+│   │   └── .fuzzy-words   <span class="cmd-comment"># OPTIONAL — 覆寫預設的模糊詞 lint</span>
+│   ├── logs/              <span class="cmd-comment"># gitignore — 吵雜的 per-session tool calls</span>
+│   ├── state/             <span class="cmd-comment"># gitignore — 短暫狀態</span>
+│   │   ├── current-agent.txt
+│   │   ├── current-feature.txt            <span class="cmd-comment"># feature-dev-tracked / execute-plan 設</span>
+│   │   ├── claude-md-candidates.jsonl     <span class="cmd-comment"># 待處理的 CLAUDE.md 提案</span>
+│   │   └── test-parity-warned-YYYYMMDD.txt
+│   └── dashboard.html     <span class="cmd-comment"># gitignore — 可重新產生</span>
+└── docs/decisions/        <span class="cmd-comment"># COMMIT — 每個 feature 的決策軌跡</span>
+    └── 2026-05-28-&lt;slug&gt;/
+        ├── 01-discovery.md
+        ├── 02-architecture.md
+        ├── 02b-test-plan.md      <span class="cmd-comment"># 只 TDD 才有</span>
+        ├── 03-implementation.md  <span class="cmd-comment"># 或 03-tdd-cycles.md</span>
+        ├── 04-review.md
+        └── 05-summary.md         <span class="cmd-comment"># 終點 — 寫完之後拒絕再進入</span>
+</pre>
+
+  <p>repo 的 <code>.gitignore</code> 要加：</p>
+<pre>.claude/logs/
+.claude/state/
+.claude/dashboard.html</pre>
+</section>
+
+<!-- 9 -->
+<section id="model">
+  <h2><span class="n">9.</span>心智模型</h2>
+  <div class="model">
+    <b>plan</b> = WHY / WHAT，給 review 的人看的部分。<br/>
+    <b>decision dir</b> = HOW，per-phase 的過程記錄。<br/>
+    <b>ledger</b> = 跨 feature 的統計。<br/>
+    <b>CLAUDE.md</b> = 從過往工作沉澱出來的規則。<br/><br/>
+    <code>/plan-feature</code> 寫第一個。
+    <code>/execute-plan</code> 把四者串起來 — 透過委派產出 decision dir、
+    收尾時 append ledger、並觸發 <code>curate-claude-md</code> 讓 learnings 回流到規則。
+  </div>
+
+  <p style="color:var(--muted); margin-top:18px; font-size:12px;">
+    原始碼：<code>plugins/yang-toolkit/commands/*.md</code> · 安裝、hook 細節、ledger schema、observability 分層請見 <code>README.md</code>。
+  </p>
+</section>
+
+</div>
+</body>
+</html>

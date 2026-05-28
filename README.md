@@ -115,6 +115,10 @@ official statusline docs for the latest interpolation rules.)
 
 ## Cheat sheet -- one feature from 0 to merged
 
+> Also available as a single-page HTML tutorial: `docs/usage.html`
+> (or `docs/usage.zh.html` for 繁體中文). On macOS:
+> `open docs/usage.html`. On Linux: `xdg-open`.
+
 ### Passive (no commands, just happens while you work)
 - `PreToolUse` hook -> append every tool call to `.claude/logs/session-YYYYMMDD.jsonl`
 - `PostToolUse` hook (Edit/Write/MultiEdit) -> score the touched folder, dedupe-append candidates to `.claude/state/claude-md-candidates.jsonl`
