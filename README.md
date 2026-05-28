@@ -28,6 +28,16 @@ hook and show up in the statusline / dashboard automatically.
 - `curate-claude-md` -- audit + (re)generate nested `CLAUDE.md`
 
 **Commands** (`plugins/yang-toolkit/commands/`)
+- `/yang-toolkit:plan-feature` -- draft a reviewable plan artifact at
+  `.claude/plans/<slug>.md` with auto-generated Memory References from
+  ledger + CLAUDE.md + decision dirs. Does NOT execute; hand to
+  `/execute-plan` when ready. Supports `--from <slug>` (replan) and
+  `--revise <slug>` (append a revision section).
+- `/yang-toolkit:execute-plan` -- parse + validate a plan, resolve
+  `depends_on`, assemble a `/goal` condition from Acceptance Criteria,
+  set state, and delegate to `tdd-feature` or `feature-dev-tracked`
+  based on the plan's `discipline`. `--dry-run` shows the assembled
+  /goal without executing.
 - `/yang-toolkit:feature-dev-tracked` -- wraps `/feature-dev`, writes per-phase
   decision docs + one ledger summary
 - `/yang-toolkit:tdd-feature` -- TDD-discipline sibling. Can continue from a
@@ -113,12 +123,20 @@ official statusline docs for the latest interpolation rules.)
 
 ### Active (the commands, in the order you'll usually run them)
 
-Two start commands -- pick by whether TDD discipline matters for this feature:
+Pick an entry point by how much pre-flight review you want and whether
+TDD discipline matters:
+
+- **0a / 0b**: jump straight into implementation. Fastest path.
+- **0p + 0x**: write a plan artifact first, then execute. Use when the
+  work is large, depends on other in-flight features, or you want a
+  PR-reviewable plan before code lands.
 
 | Step | Command | What it does |
 | ---- | ------- | ------------ |
-| 0a. Start (regular flow) | `/yang-toolkit:feature-dev-tracked "<one-line description>"` | Wraps `/feature-dev`. Drives discovery -> architecture -> implementation -> review -> summary; writes one decision doc per phase under `docs/decisions/{date}-{slug}/`; appends a ledger summary at the end. |
-| 0b. Start (TDD flow) | `/yang-toolkit:tdd-feature "<description>"` OR `/yang-toolkit:tdd-feature` (continues from a paused feature-dev-tracked) | Enforces red -> green -> refactor per test case; writes a `02b-test-plan.md` then a `03-tdd-cycles.md` log; shares the same decision dir and ledger schema as feature-dev-tracked. Adds a `cycles` field to the ledger entry. |
+| 0p. Plan (optional pre-stage) | `/yang-toolkit:plan-feature "<description>"` | Enters plan mode, recalls past context (ledger + CLAUDE.md + decision dirs), writes `.claude/plans/<slug>.md`. Auto-suggests `depends_on` for related unfinished features. Review the file, edit if needed. |
+| 0x. Execute the plan | `/yang-toolkit:execute-plan` (or `--from <slug>`, `--dry-run`, `--single` / `--team` overrides) | Parses + validates the plan, assembles a `/goal` condition from Acceptance Criteria, then delegates to `tdd-feature` or `feature-dev-tracked` based on the plan's `discipline`. Updates plan status + appends ledger at the end. |
+| 0a. Start (regular flow, no plan stage) | `/yang-toolkit:feature-dev-tracked "<one-line description>"` | Wraps `/feature-dev`. Drives discovery -> architecture -> implementation -> review -> summary; writes one decision doc per phase under `docs/decisions/{date}-{slug}/`; appends a ledger summary at the end. |
+| 0b. Start (TDD flow, no plan stage) | `/yang-toolkit:tdd-feature "<description>"` OR `/yang-toolkit:tdd-feature` (continues from a paused feature-dev-tracked) | Enforces red -> green -> refactor per test case; writes a `02b-test-plan.md` then a `03-tdd-cycles.md` log; shares the same decision dir and ledger schema as feature-dev-tracked. Adds a `cycles` field to the ledger entry. |
 | 1. (during discovery, auto) | -- | `code-explorer` agent (ships with `feature-dev`) traces the codebase. No command needed. |
 | 2. (during architecture, auto) | -- | `code-architect` agent designs the implementation. No command needed. |
 | 3. (during review phase) | `/code-review` | Multi-agent review with confidence-scored findings. Use with `--fix` or `/simplify` to auto-apply small cleanups. |
@@ -189,6 +207,33 @@ $ /yang-toolkit:ledger-append
    pr: https://github.com/.../pull/123
    commit: a1b2c3d
    appended .claude/ledger.jsonl
+```
+
+### Plan-first variant
+
+```
+$ /yang-toolkit:plan-feature Add cancellation policy UI to booking flow
+   recalled 2 prior ledger entries, 1 CLAUDE.md rule, 1 decision-dir summary
+   suggested depends_on: ['booking-policy-engine'] (in-progress)  -> accepted
+   wrote .claude/plans/cancellation-policy-ui.md (status: draft)
+
+$ # user opens the plan, edits Acceptance Criteria, sets discipline: tdd
+
+$ /yang-toolkit:execute-plan --dry-run
+   parsed 4 acceptance criteria, all pass fuzzy-word lint
+   resolved 1 dependency (booking-policy-engine: done)
+   assembled /goal (847 chars)
+   would delegate to: /yang-toolkit:tdd-feature --from cancellation-policy-ui
+
+$ /yang-toolkit:execute-plan
+   set /goal ...
+   set status: executing, started_at: 2026-05-28T...Z
+   delegated to /yang-toolkit:tdd-feature
+   ... TDD cycles run ...
+   /goal achieved at turn 18
+   appended ## Execution Log block
+   set status: done
+   appended ledger (orchestration: single, goal_turns: 18)
 ```
 
 ## Observability -- four tiers
@@ -290,10 +335,13 @@ When you adopt `yang-toolkit` in a client repo, you'll accumulate:
 client-repo/
 |-- .claude/
 |   |-- ledger.jsonl       # COMMIT this -- it's the project memory
+|   |-- plans/             # COMMIT this -- reviewable plan artifacts
+|   |     |-- <slug>.md                        # one per planned feature; status tracks lifecycle
+|   |     `-- .fuzzy-words                     # OPTIONAL: project-local override of /execute-plan's fuzzy-word lint
 |   |-- logs/              # gitignore -- noisy per-session tool calls
 |   |-- state/             # gitignore -- ephemeral
 |   |     |-- current-agent.txt
-|   |     |-- current-feature.txt              # in-flight feature slug (set by feature-dev-tracked, read by tdd-feature)
+|   |     |-- current-feature.txt              # in-flight feature slug (set by feature-dev-tracked / execute-plan, read by tdd-feature)
 |   |     |-- claude-md-candidates.jsonl       # pending CLAUDE.md gap proposals
 |   |     `-- test-parity-warned-YYYYMMDD.txt  # files we've already nudged about today
 |   `-- dashboard.html     # gitignore -- regenerable artifact
