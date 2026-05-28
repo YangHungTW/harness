@@ -60,16 +60,25 @@ hook and show up in the statusline / dashboard automatically.
 /plugin install yang-toolkit@harness
 ```
 
-Installing `yang-toolkit` auto-installs two upstream dependencies from the
+Installing `yang-toolkit` auto-installs five upstream dependencies from the
 `claude-plugins-official` marketplace (which auto-loads in every Claude Code):
 
 | Auto-installed dependency | Used by harness for |
 | ------------------------- | ------------------- |
-| `feature-dev`             | the `/yang-toolkit:feature-dev-tracked` wrapper delegates to its `/feature-dev` command |
-| `claude-md-management`    | the `/yang-toolkit:claude-md-gaps` flow delegates to its `/revise-claude-md` command for nested-folder generation |
+| `feature-dev`             | `/yang-toolkit:feature-dev-tracked` delegates to its `/feature-dev` command (7-phase workflow + 3 specialized agents) |
+| `claude-md-management`    | `/yang-toolkit:claude-md-gaps` delegates to its `/revise-claude-md` for nested-folder generation |
+| `code-review`             | natural review step inside the feature-dev flow; runs multi-agent confidence-scored review |
+| `code-simplifier`         | post-review cleanup pass to simplify implementation code |
+| `commit-commands`         | `/commit` / `/push` / `/create-pr` commands used at the tail of every feature |
 
-Claude Code lists both at the end of the install output. You can confirm with
-`claude plugin list` afterward.
+Claude Code lists all five at the end of the install output. You can confirm
+with `claude plugin list` afterward.
+
+Explicitly NOT auto-installed (install separately if you want them):
+`pr-review-toolkit` (overlaps with `code-review`), `frontend-design`
+(domain-specific), `hookify` (one-shot meta tool), `claude-code-setup`
+(one-shot meta tool), `remember` (operates on conversation memory, a
+different layer from harness's tool-execution ledger).
 
 To use `statusline.sh` as the **main** Claude Code statusline (it's already
 wired as `subagentStatusLine`), add to your `~/.claude/settings.json`:
@@ -86,6 +95,80 @@ wired as `subagentStatusLine`), add to your `~/.claude/settings.json`:
 (Note: `${CLAUDE_PLUGIN_ROOT}` is only resolved inside plugin-context settings.
 For user settings you may need to expand the install path manually; see the
 official statusline docs for the latest interpolation rules.)
+
+## Cheat sheet -- one feature from 0 to merged
+
+### Passive (no commands, just happens while you work)
+- `PreToolUse` hook -> append every tool call to `.claude/logs/session-YYYYMMDD.jsonl`
+- `PostToolUse` hook (Edit/Write/MultiEdit) -> score the touched folder, dedupe-append candidates to `.claude/state/claude-md-candidates.jsonl`
+- `SubagentStop` hook -> write running agent name to `.claude/state/current-agent.txt` (drives the statusline + dashboard kanban badges)
+- `Stop` hook -> append session summary to `.claude/ledger.jsonl` with outcome `in-progress`
+
+### Active (the commands, in the order you'll usually run them)
+
+| Step | Command | What it does |
+| ---- | ------- | ------------ |
+| 0. Start the feature | `/yang-toolkit:feature-dev-tracked "<one-line description>"` | Wraps `/feature-dev`. Drives discovery -> architecture -> implementation -> review -> summary; writes one decision doc per phase under `docs/decisions/{date}-{slug}/`; appends a ledger summary at the end. |
+| 1. (during discovery, auto) | -- | `code-explorer` agent (ships with `feature-dev`) traces the codebase. No command needed. |
+| 2. (during architecture, auto) | -- | `code-architect` agent designs the implementation. No command needed. |
+| 3. (during review phase) | `/code-review` | Multi-agent review with confidence-scored findings. Use with `--fix` or `/simplify` to auto-apply small cleanups. |
+| 4. (cleanup) | `/code-simplifier` | Refactor for clarity/consistency without changing behavior. |
+| 5. (mid-stream, whenever) | `/yang-toolkit:claude-md-gaps` | Review nested-folder CLAUDE.md candidates the passive hook flagged. Delegates generation to `/revise-claude-md`. Always gated on your accept before any file is written. |
+| 6. Commit | `/commit` | `commit-commands` plugin -- generates message from diff and commits. |
+| 7. Push | `/push` | Push current branch. |
+| 8. Open PR | `/create-pr` | Open a PR with a description derived from commits. |
+| 9. After PR merges | `/yang-toolkit:ledger-append` | Update the session's ledger entry: flip outcome to `merged`, add PR URL + commit SHA. |
+
+### Anytime
+
+| Command | What it does |
+| ------- | ------------ |
+| `/yang-toolkit:dashboard` | Render `.claude/ledger.jsonl` to an HTML artifact (timeline + kanban + stats). |
+| `/yang-toolkit:week` | Cross-repo weekly report from `~/.config/harness/repos.json`. |
+| `/yang-toolkit:today` | Daily digest aggregating GitHub / external surfaces + every tracked repo's recent ledger entries. |
+| `/yang-toolkit:ledger-append` | Manually backfill a ledger entry you forgot to capture. |
+| `/yang-toolkit:curate-claude-md` | Audit + reorganize existing CLAUDE.md files (technical rules drift up, business rules drift down). |
+
+### Concrete walk-through
+
+```
+$ /yang-toolkit:feature-dev-tracked Add cancellation policy UI to booking flow
+
+   [code-explorer scans the repo]
+   wrote docs/decisions/2026-05-28-cancellation-policy-ui/01-discovery.md
+
+   [code-architect proposes architecture]
+   wrote docs/decisions/2026-05-28-cancellation-policy-ui/02-architecture.md
+
+   [implementation -- Edit/Write tools, hook accumulates gap candidates]
+   wrote docs/decisions/2026-05-28-cancellation-policy-ui/03-implementation.md
+
+$ /code-review
+   ... review output, applied two small fixes ...
+
+$ /yang-toolkit:claude-md-gaps
+   Top candidate: app/booking/policies/ (score 0.78)
+   Generate draft? [y/N] y
+   ... draft shown ...
+   Accept? [y/N] y
+   wrote app/booking/policies/CLAUDE.md
+   updated .claude/state/claude-md-candidates.jsonl
+   appended .claude/ledger.jsonl (outcome=claude-md-created)
+
+$ /commit
+$ /push
+$ /create-pr
+   https://github.com/.../pull/123
+
+   (later)
+
+$ /yang-toolkit:ledger-append
+   feature: cancellation-policy-ui
+   outcome: merged
+   pr: https://github.com/.../pull/123
+   commit: a1b2c3d
+   appended .claude/ledger.jsonl
+```
 
 ## Observability -- four tiers
 
