@@ -30,6 +30,9 @@ hook and show up in the statusline / dashboard automatically.
 **Commands** (`plugins/yang-toolkit/commands/`)
 - `/yang-toolkit:feature-dev-tracked` -- wraps `/feature-dev`, writes per-phase
   decision docs + one ledger summary
+- `/yang-toolkit:tdd-feature` -- TDD-discipline sibling. Can continue from a
+  paused `feature-dev-tracked` session (via `.claude/state/current-feature.txt`)
+  or start fresh. Enforces red -> green -> refactor cycles, logs each cycle.
 - `/yang-toolkit:ledger-append` -- manually backfill or correct ledger entries
 - `/yang-toolkit:claude-md-gaps` -- review nested-folder CLAUDE.md gap candidates,
   delegate generation to the official `claude-md-management` plugin, gated on
@@ -106,9 +109,12 @@ official statusline docs for the latest interpolation rules.)
 
 ### Active (the commands, in the order you'll usually run them)
 
+Two start commands -- pick by whether TDD discipline matters for this feature:
+
 | Step | Command | What it does |
 | ---- | ------- | ------------ |
-| 0. Start the feature | `/yang-toolkit:feature-dev-tracked "<one-line description>"` | Wraps `/feature-dev`. Drives discovery -> architecture -> implementation -> review -> summary; writes one decision doc per phase under `docs/decisions/{date}-{slug}/`; appends a ledger summary at the end. |
+| 0a. Start (regular flow) | `/yang-toolkit:feature-dev-tracked "<one-line description>"` | Wraps `/feature-dev`. Drives discovery -> architecture -> implementation -> review -> summary; writes one decision doc per phase under `docs/decisions/{date}-{slug}/`; appends a ledger summary at the end. |
+| 0b. Start (TDD flow) | `/yang-toolkit:tdd-feature "<description>"` OR `/yang-toolkit:tdd-feature` (continues from a paused feature-dev-tracked) | Enforces red -> green -> refactor per test case; writes a `02b-test-plan.md` then a `03-tdd-cycles.md` log; shares the same decision dir and ledger schema as feature-dev-tracked. Adds a `cycles` field to the ledger entry. |
 | 1. (during discovery, auto) | -- | `code-explorer` agent (ships with `feature-dev`) traces the codebase. No command needed. |
 | 2. (during architecture, auto) | -- | `code-architect` agent designs the implementation. No command needed. |
 | 3. (during review phase) | `/code-review` | Multi-agent review with confidence-scored findings. Use with `--fix` or `/simplify` to auto-apply small cleanups. |
@@ -143,6 +149,17 @@ $ /yang-toolkit:feature-dev-tracked Add cancellation policy UI to booking flow
    [implementation -- Edit/Write tools, hook accumulates gap candidates]
    wrote docs/decisions/2026-05-28-cancellation-policy-ui/03-implementation.md
 
+$ # ALTERNATIVE: if you want TDD discipline, after architecture you can pause and pivot:
+$ /yang-toolkit:tdd-feature              # picks up via .claude/state/current-feature.txt
+   reads 01-discovery, 02-architecture, asks "continue with TDD?"
+   wrote 02b-test-plan.md
+   cycle 1: red -> green -> refactor (logged in 03-tdd-cycles.md)
+   cycle 2: ...
+   wrote 04-review.md (after /code-review)
+   wrote 05-summary.md
+   appended ledger (cycles=4)
+
+$ # OR continue the non-TDD path:
 $ /code-review
    ... review output, applied two small fixes ...
 

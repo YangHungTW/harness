@@ -25,6 +25,13 @@ guarantees:
 - Compute `today = YYYY-MM-DD` (UTC).
 - Create directory `${CLAUDE_PROJECT_DIR}/docs/decisions/{today}-{slug}/` (use
   the `Write` tool on a placeholder if Bash mkdir isn't available; do not skip).
+- **Set the current-feature pointer**: write the bare slug (no date prefix,
+  no newline beyond a trailing `\n`) to
+  `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt`. This lets
+  `/yang-toolkit:tdd-feature` pick up where this command left off if the user
+  decides mid-flow to switch into TDD discipline. Create the parent directory
+  if missing. If you cannot write the file (read-only fs, etc.), surface a
+  warning but continue -- it's a convenience, not a correctness requirement.
 
 ### Step 2 -- run phases
 Run the standard feature-dev phases in order:
@@ -71,11 +78,15 @@ At the end of `summary`, append exactly ONE line to
 Append using `Write` in append mode (or `echo >>` via Bash). Each entry must
 be a single line of compact JSON, terminated by `\n`.
 
-### Step 4 -- report
-Tell the user:
-- The decision directory you created.
-- That one ledger record was appended.
-- If anything was skipped or degraded, say so explicitly.
+### Step 4 -- report and clean up
+- Clear the current-feature pointer: delete (or truncate to empty)
+  `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt`. This signals that
+  the feature has reached `summary` and tdd-feature should NOT try to continue
+  it -- starting TDD on a summarized feature requires a new slug.
+- Tell the user:
+  - The decision directory you created.
+  - That one ledger record was appended.
+  - If anything was skipped or degraded, say so explicitly.
 
 ## Failure modes
 - If `${CLAUDE_PROJECT_DIR}/docs/decisions/` cannot be created, abort with a
