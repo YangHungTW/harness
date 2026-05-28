@@ -25,6 +25,17 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "_comment": "Test-parity reminder: when production code is edited but no test mirror has been touched in this session, inject a one-line nudge into Claude's next-turn context. Opt-out via HARNESS_DISABLE_TEST_PARITY=1. Dedupes per (file, day).",
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/test-parity-check.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "SubagentStop": [

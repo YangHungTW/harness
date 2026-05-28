@@ -40,8 +40,12 @@ hook and show up in the statusline / dashboard automatically.
 
 **Hooks** (`plugins/yang-toolkit/hooks/hooks.json`)
 - `PreToolUse` -> `.claude/logs/session-{YYYYMMDD}.jsonl`
-- `PostToolUse` (Edit|Write|MultiEdit) -> passive: score the touched folder
-  for CLAUDE.md need, dedupe-append to `.claude/state/claude-md-candidates.jsonl`
+- `PostToolUse` (Edit|Write|MultiEdit) -> two passive checks:
+  - score the touched folder for CLAUDE.md need; dedupe-append to
+    `.claude/state/claude-md-candidates.jsonl`
+  - test-parity nudge: if a production-code file was edited but no test
+    mirror has been touched in this session, inject a reminder into Claude's
+    next-turn context (see "Test parity reminder" below)
 - `SubagentStop` -> `.claude/state/current-agent.txt`
 - `Stop` -> append summary to `.claude/ledger.jsonl` (outcome=`in-progress`,
   user-correctable via `/ledger-append`)
@@ -238,6 +242,46 @@ marketplace auto-loads). Install once with:
 /plugin install claude-md-management
 ```
 
+## Test parity reminder
+
+A second PostToolUse hook nudges Claude when production code is edited
+without touching its test mirror in the same session. Designed to address
+the common pattern where Claude fixes a `.rb`/`.go`/`.ts` file and forgets
+the corresponding `_spec.rb` / `_test.go` / `.test.ts`.
+
+**Flow**
+1. PostToolUse hook fires on every Edit / Write / MultiEdit
+2. Hook derives one or more "expected mirror" test paths from the edited file
+   (per-language rules; see `hooks/test-parity-check.sh` for the full table)
+3. Hook scans today's session log: did the same session touch any of those
+   mirror paths via Edit / Write / MultiEdit?
+4. If not, hook outputs a structured JSON reminder that gets injected into
+   Claude's next-turn context (`hookSpecificOutput.additionalContext`) AND
+   surfaced as a `systemMessage` so the user sees it too
+5. Per-session dedupe via `.claude/state/test-parity-warned-YYYYMMDD.txt`
+   -- one warning per (file, day), no spam
+
+**Languages covered out of the box**
+
+| Production file pattern         | Mirror candidates                                                                |
+| ------------------------------- | -------------------------------------------------------------------------------- |
+| `app/**/*.rb`                   | `spec/**/*_spec.rb`, `test/**/*_test.rb`                                         |
+| `lib/**/*.rb`                   | `spec/lib/**/*_spec.rb`, `spec/**/*_spec.rb`                                     |
+| `**/*.go`                       | `**/*_test.go` (same dir)                                                        |
+| `**/*.{ts,tsx,js,jsx}`          | sibling `.test.X` / `.spec.X` and `__tests__/` subdir                            |
+| `**/*.py`                       | `tests/test_*.py`, same-dir `test_*.py`                                          |
+| `**/*.sol`                      | `test/*.t.sol`, `test/*.test.sol` (Foundry layout)                                |
+
+Anything outside these patterns (or matching the negative-filter list:
+migrations, config, views, assets, lockfiles, docs, dotenv files) is
+silently skipped.
+
+**Opt-out**
+
+Set `HARNESS_DISABLE_TEST_PARITY=1` in your shell env or repo `.envrc` to
+disable globally. Or per-repo: edit `.claude/settings.local.json` to add
+`{ "env": { "HARNESS_DISABLE_TEST_PARITY": "1" } }`.
+
 ## Per-client-repo file convention
 
 When you adopt `yang-toolkit` in a client repo, you'll accumulate:
@@ -249,7 +293,9 @@ client-repo/
 |   |-- logs/              # gitignore -- noisy per-session tool calls
 |   |-- state/             # gitignore -- ephemeral
 |   |     |-- current-agent.txt
-|   |     `-- claude-md-candidates.jsonl  # pending CLAUDE.md gap proposals
+|   |     |-- current-feature.txt              # in-flight feature slug (set by feature-dev-tracked, read by tdd-feature)
+|   |     |-- claude-md-candidates.jsonl       # pending CLAUDE.md gap proposals
+|   |     `-- test-parity-warned-YYYYMMDD.txt  # files we've already nudged about today
 |   `-- dashboard.html     # gitignore -- regenerable artifact
 `-- docs/decisions/        # COMMIT this -- per-feature decision trail
 ```
