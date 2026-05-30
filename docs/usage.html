@@ -289,6 +289,7 @@
     <tbody>
       <tr><td><code>--from &lt;slug&gt;</code></td><td>Run an explicit plan instead of the most-recent draft.</td></tr>
       <tr><td><code>--single</code> / <code>--team</code></td><td>Override the plan's <code>orchestration</code> for this run only.</td></tr>
+      <tr><td><code>--auto</code></td><td>Enter auto mode for this run so the <code>/goal</code> loop runs unattended. Without it each turn still pauses for tool approval -- <code>/goal</code> alone only removes per-turn prompts.</td></tr>
       <tr><td><code>--no-goal</code></td><td>Skip <code>/goal</code> setup; you control turn-by-turn.</td></tr>
       <tr><td><code>--ignore-deps</code></td><td>Proceed even if <code>depends_on</code> items aren't <code>done</code> (recorded in ledger).</td></tr>
       <tr><td><code>--dry-run</code></td><td>Parse + show /goal + show delegate target; no execution.</td></tr>

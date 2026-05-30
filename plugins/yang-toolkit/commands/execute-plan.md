@@ -14,6 +14,7 @@ directly.
 - `$ARGUMENTS` -- empty, or any combination of:
   - `--from <slug>` -- explicit plan to run
   - `--single` / `--team` -- override `orchestration` from frontmatter
+  - `--auto` -- enter auto mode for the duration of this run so the `/goal` loop runs unattended (otherwise each turn still pauses for tool approval)
   - `--no-goal` -- skip `/goal` setup (user wants manual turn-by-turn control)
   - `--ignore-deps` -- proceed even if `depends_on` items aren't `done`
   - `--dry-run` -- print parsed plan + assembled /goal + delegate target, do NOT execute
@@ -141,6 +142,28 @@ Rules:
 Print the assembled condition. **Ask the user to confirm** before
 proceeding -- this is the autopilot guardrail.
 
+### Auto mode (only if `--auto` is passed)
+
+`/goal` removes per-turn prompts; **auto mode** removes per-tool
+prompts. Either alone is half-automated; together they produce
+unattended execution.
+
+After the user confirms the /goal condition AND before issuing
+`/goal`, attempt to enter auto mode for the session. The exact
+mechanism is Claude-Code-version-specific (typically a `/auto` slash
+command or an equivalent in-session toggle). If you cannot enable it
+programmatically, prompt the user with the steps to enable it and
+wait for confirmation before continuing.
+
+If `--auto` was NOT passed, print this one-line note and proceed:
+
+> Note: auto mode is not active. `/goal` will keep starting new
+> turns, but each turn will pause for tool approval. Pass `--auto`
+> next time to make the loop fully unattended.
+
+Do not silently enter auto mode without `--auto`. Auto mode is
+opt-in.
+
 ## Step 4 -- set state and status
 
 1. Update plan frontmatter:
@@ -266,6 +289,7 @@ touch the ledger.
 | Assembled `/goal` condition exceeds 4000 characters                                | Abort. Suggest shrinking criteria or splitting the plan into pieces linked via `depends_on`.                                                      |
 | Files Touched scope violated during execution (only detectable if a hook is wired) | Continue, but record the violation in Execution Log. Scope-guard hooks are opt-in; absent hooks make this best-effort.                            |
 | `/yang-toolkit:curate-claude-md` not installed                                     | Skip step 7.5; mention in final report. Do not abort.                                                                                             |
+| `--auto` passed but auto mode cannot be enabled in this Claude Code version        | Warn, print manual enable steps, wait for user confirmation. Do NOT proceed silently as if auto mode were active.                                |
 
 ## Failure modes
 

@@ -289,6 +289,7 @@
     <tbody>
       <tr><td><code>--from &lt;slug&gt;</code></td><td>指定執行某個 plan，不要拿最新的 draft。</td></tr>
       <tr><td><code>--single</code> / <code>--team</code></td><td>本次蓋掉 plan 內的 <code>orchestration</code>。</td></tr>
+      <tr><td><code>--auto</code></td><td>本次進入 auto mode，讓 <code>/goal</code> 迴圈無人值守。沒加的話每輪還是會停下等 tool approval — <code>/goal</code> 只負責省掉 per-turn 確認。</td></tr>
       <tr><td><code>--no-goal</code></td><td>不設 <code>/goal</code>，由你自己 step through。</td></tr>
       <tr><td><code>--ignore-deps</code></td><td>強制執行，即使 <code>depends_on</code> 還沒 <code>done</code>（會記在 ledger）。</td></tr>
       <tr><td><code>--dry-run</code></td><td>解析 + 顯示 /goal + 顯示委派目標；不執行。</td></tr>
