@@ -11,7 +11,18 @@ set -u
 input="$(cat -)"
 
 project_dir="${CLAUDE_PROJECT_DIR:-$PWD}"
-state_dir="${project_dir}/.claude/state"
+
+# harness_root = MAIN git worktree, so durable state survives worktree deletion
+# and is shared across worktrees. Falls back to project_dir when git is absent
+# or this is not a repo. Inlined (not sourced) to keep hooks dependency-free.
+harness_root="$project_dir"
+if command -v git >/dev/null 2>&1; then
+  _main="$(git -C "$project_dir" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+  [ -n "$_main" ] && harness_root="$_main"
+fi
+
+# Durable: the CLAUDE.md gap queue lives at the harness root (shared/centralized).
+state_dir="${harness_root}/.claude/state"
 candidates="${state_dir}/claude-md-candidates.jsonl"
 mkdir -p "$state_dir" 2>/dev/null || exit 0
 

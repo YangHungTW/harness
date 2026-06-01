@@ -5,12 +5,33 @@ description: Draft a reviewable plan artifact for a feature. Pulls relevant cont
 # /yang-toolkit:plan-feature
 
 You are creating or revising a **plan artifact** -- a markdown file at
-`${CLAUDE_PROJECT_DIR}/.claude/plans/<slug>.md` that the user will review
+`<HARNESS_ROOT>/.claude/plans/<slug>.md` that the user will review
 and `/yang-toolkit:execute-plan` will later parse and run.
 
 Plans are deliberately decoupled from `docs/decisions/`: one plan can be
 executed, fail, get revised, and re-executed without polluting the
 decision-doc numbering.
+
+## Harness root (worktree-aware)
+
+Durable state (plans, ledger) must live in the MAIN git worktree so it
+survives deletion of any linked worktree and is shared across worktrees.
+Resolve it once at the start:
+
+```
+git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
+```
+
+Call the result `<HARNESS_ROOT>`. If that command yields nothing or this is
+not a git repo, fall back to `${CLAUDE_PROJECT_DIR}`. In the main worktree
+the two are identical, so non-worktree users see no change.
+
+Use `<HARNESS_ROOT>` for durable paths only:
+- `<HARNESS_ROOT>/.claude/plans/...`
+- `<HARNESS_ROOT>/.claude/ledger.jsonl`
+
+Keep `${CLAUDE_PROJECT_DIR}` for ephemeral / branch-local paths:
+`docs/decisions/`, logs, and `.claude/state/current-feature.txt`.
 
 ## Inputs
 - `$ARGUMENTS` -- one of:
@@ -29,7 +50,7 @@ Triggered when `$ARGUMENTS` is natural-language text (not `--from` or
 1. Derive a kebab-case `slug` from the description. Use the same rule
    `/yang-toolkit:feature-dev-tracked` uses so slugs are deterministic
    across commands.
-2. Check `${CLAUDE_PROJECT_DIR}/.claude/plans/<slug>.md`. If it exists,
+2. Check `<HARNESS_ROOT>/.claude/plans/<slug>.md`. If it exists,
    STOP and ask the user: Mode B (replan from scratch) or Mode C
    (append a revision)? Do not silently overwrite.
 3. Continue to **Memory recall** below.
@@ -37,7 +58,7 @@ Triggered when `$ARGUMENTS` is natural-language text (not `--from` or
 ### Mode B -- from existing (replan)
 Triggered by `--from <slug>`.
 
-1. Read `${CLAUDE_PROJECT_DIR}/.claude/plans/<slug>.md`. If missing,
+1. Read `<HARNESS_ROOT>/.claude/plans/<slug>.md`. If missing,
    abort with "no such plan; check `ls .claude/plans/`".
 2. Show the user the existing plan's Goal + Acceptance Criteria. Ask:
    "Replan from scratch will overwrite the whole file. Continue?"
@@ -59,7 +80,7 @@ Triggered by `--revise <slug>`.
 
 Pull four classes of past context. Cap each, do not dump full files.
 
-1. **Ledger**: read `${CLAUDE_PROJECT_DIR}/.claude/ledger.jsonl` line
+1. **Ledger**: read `<HARNESS_ROOT>/.claude/ledger.jsonl` line
    by line. Score each entry by:
    - slug token overlap with the current slug
    - path/feature stem overlap (if the entry recorded any)
@@ -94,7 +115,7 @@ unavailable for any reason, continue but mark the resulting file with
 a `> ⚠ generated without plan mode; review more carefully.` blockquote
 as the first body line.
 
-Produce or overwrite `${CLAUDE_PROJECT_DIR}/.claude/plans/<slug>.md`
+Produce or overwrite `<HARNESS_ROOT>/.claude/plans/<slug>.md`
 using this exact skeleton:
 
 ```markdown

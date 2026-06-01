@@ -5,7 +5,21 @@ description: Manually append one record to .claude/ledger.jsonl. For backfilling
 # /yang-toolkit:ledger-append
 
 You are appending exactly ONE record to
-`${CLAUDE_PROJECT_DIR}/.claude/ledger.jsonl`.
+`<HARNESS_ROOT>/.claude/ledger.jsonl`.
+
+## Harness root (worktree-aware)
+
+The ledger is durable state and must live in the MAIN git worktree so it
+survives worktree deletion and is shared across worktrees. Resolve it once:
+
+```
+git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
+```
+
+Call the result `<HARNESS_ROOT>`. If that command is empty or this is not a git
+repo, fall back to `<HARNESS_ROOT>` = `${CLAUDE_PROJECT_DIR}`. In the main
+worktree these are identical, so non-worktree users see no change. Use
+`<HARNESS_ROOT>` for the ledger path below.
 
 ## Required fields -- ask the user before writing
 Walk the user through these. If a value is given in `$ARGUMENTS` already, use it
@@ -43,7 +57,7 @@ controlled list, push back: list the allowed values and ask again.
      "commit": null
    }
    ```
-2. Append to `${CLAUDE_PROJECT_DIR}/.claude/ledger.jsonl` (create the file +
+2. Append to `<HARNESS_ROOT>/.claude/ledger.jsonl` (create the file +
    directory if missing). One line, terminated by `\n`.
 3. Echo the exact line you wrote back to the user.
 

@@ -359,19 +359,29 @@ When you adopt `yang-toolkit` in a client repo, you'll accumulate:
 ```
 client-repo/
 |-- .claude/
-|   |-- ledger.jsonl       # COMMIT this -- it's the project memory
-|   |-- plans/             # COMMIT this -- reviewable plan artifacts
+|   |-- ledger.jsonl       # COMMIT this -- it's the project memory   [MAIN-worktree-shared]
+|   |-- plans/             # COMMIT this -- reviewable plan artifacts  [MAIN-worktree-shared]
 |   |     |-- <slug>.md                        # one per planned feature; status tracks lifecycle
 |   |     `-- .fuzzy-words                     # OPTIONAL: project-local override of /execute-plan's fuzzy-word lint
-|   |-- logs/              # gitignore -- noisy per-session tool calls
+|   |-- logs/              # gitignore -- noisy per-session tool calls [per-worktree]
 |   |-- state/             # gitignore -- ephemeral
-|   |     |-- current-agent.txt
-|   |     |-- current-feature.txt              # in-flight feature slug (set by feature-dev-tracked / execute-plan, read by tdd-feature)
-|   |     |-- claude-md-candidates.jsonl       # pending CLAUDE.md gap proposals
-|   |     `-- test-parity-warned-YYYYMMDD.txt  # files we've already nudged about today
-|   `-- dashboard.html     # gitignore -- regenerable artifact
-`-- docs/decisions/        # COMMIT this -- per-feature decision trail
+|   |     |-- current-agent.txt                # live UI state          [per-worktree]
+|   |     |-- current-feature.txt              # in-flight feature slug (set by feature-dev-tracked / execute-plan, read by tdd-feature)  [per-worktree]
+|   |     |-- claude-md-candidates.jsonl       # pending CLAUDE.md gap proposals  [MAIN-worktree-shared]
+|   |     `-- test-parity-warned-YYYYMMDD.txt  # files we've already nudged about today  [per-worktree]
+|   `-- dashboard.html     # gitignore -- regenerable artifact         [per-worktree]
+`-- docs/decisions/        # COMMIT this -- per-feature decision trail (stays with the feature branch -- intentionally per-worktree)
 ```
+
+**Worktree-aware durable state.** The `[MAIN-worktree-shared]` entries above
+(`plans/`, `ledger.jsonl`, `state/claude-md-candidates.jsonl`) resolve to the
+**main** worktree -- the first entry of `git worktree list --porcelain` -- rather
+than to the current `CLAUDE_PROJECT_DIR`. This way a deleted linked worktree
+doesn't take your plans, ledger history, or CLAUDE.md candidate queue with it.
+The `[per-worktree]` entries stay on `CLAUDE_PROJECT_DIR` (logs and session
+cursors are inherently per-session). In the main worktree the two resolve to the
+same path, so non-worktree users see no change. `docs/decisions/` intentionally
+stays with the feature branch and is never redirected.
 
 Add to that repo's `.gitignore`:
 
@@ -454,10 +464,13 @@ claude --plugin-dir ./plugins/yang-toolkit
 
 ## Status
 
-`v0.6.0` -- functional. Commands, skills, hooks, statusline, and the
+`v0.7.0` -- functional. Commands, skills, hooks, statusline, and the
 `execute-plan-team` workflow are all implemented and in personal use
 (no warranty -- see the note at the top). Recent additions:
 
+- `v0.7.0` -- worktree-aware state: plans, ledger, and the CLAUDE.md candidate
+  queue now anchor to the MAIN worktree (survive worktree deletion); logs +
+  session cursors stay per-worktree.
 - `v0.6.0` -- ledger `source` field (stop-hook vs command), UserPromptSubmit
   agent-pointer reset, candidate-noise gate, four skills implemented.
 - `v0.5.0` -- `workflow` orchestration mode for `/execute-plan`

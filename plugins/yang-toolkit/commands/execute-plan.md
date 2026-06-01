@@ -10,6 +10,27 @@ delegates the actual implementation to one of the existing feature
 commands, and records the outcome. It does not write production code
 directly.
 
+## Harness root (worktree-aware)
+
+Durable state (plans, fuzzy-words, ledger) must live in the MAIN git
+worktree so it survives deletion of any linked worktree and is shared
+across them. Resolve it once at the start:
+
+```
+git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
+```
+
+Call the result `<HARNESS_ROOT>`. If the command yields nothing or this
+is not a git repo, fall back to `${CLAUDE_PROJECT_DIR}`. In the main
+worktree `<HARNESS_ROOT>` equals `${CLAUDE_PROJECT_DIR}`, so non-worktree
+users see no change. Use `<HARNESS_ROOT>` for:
+
+- `<HARNESS_ROOT>/.claude/plans/...` (plan artifacts, incl. `.fuzzy-words`)
+- `<HARNESS_ROOT>/.claude/ledger.jsonl`
+
+Keep `${CLAUDE_PROJECT_DIR}` for ephemeral per-worktree state:
+`.claude/state/current-feature.txt`, logs, and `docs/decisions/`.
+
 ## Inputs
 - `$ARGUMENTS` -- empty, or any combination of:
   - `--from <slug>` -- explicit plan to run
@@ -26,7 +47,7 @@ Triggered when no `--from` flag is given.
 
 1. Read `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt`. If
    non-empty, set `slug` from it.
-2. Otherwise list `${CLAUDE_PROJECT_DIR}/.claude/plans/*.md`, filter to
+2. Otherwise list `<HARNESS_ROOT>/.claude/plans/*.md`, filter to
    `status: draft` or `status: accepted`, sort by mtime descending.
    - exactly one match -> confirm with the user, then use it
    - multiple -> show the list, ask which
@@ -35,7 +56,7 @@ Triggered when no `--from` flag is given.
 ### Mode B -- explicit
 Triggered by `--from <slug>`.
 
-1. Read `${CLAUDE_PROJECT_DIR}/.claude/plans/<slug>.md`. If missing,
+1. Read `<HARNESS_ROOT>/.claude/plans/<slug>.md`. If missing,
    abort.
 
 ## Step 1 -- parse and validate
@@ -87,7 +108,7 @@ robust, performant, scalable, maintainable, sufficient, reasonable
 ```
 
 **Project override**: if
-`${CLAUDE_PROJECT_DIR}/.claude/plans/.fuzzy-words` exists, REPLACE
+`<HARNESS_ROOT>/.claude/plans/.fuzzy-words` exists, REPLACE
 the default with the file's contents (one entry per line, `#`
 comments and blank lines ignored). Do not merge -- replacement keeps
 the rule explicit and debuggable.
@@ -303,7 +324,7 @@ arrives, proceed to Step 7's workflow branch.
      and any `result.scopeViolations`
    - whether any Files Touched scope-guard violations were observed
 
-4. **Append ONE record** to `${CLAUDE_PROJECT_DIR}/.claude/ledger.jsonl`
+4. **Append ONE record** to `<HARNESS_ROOT>/.claude/ledger.jsonl`
    matching the feature-dev-tracked schema plus these extras:
    ```
    "plan_path":      ".claude/plans/<slug>.md",

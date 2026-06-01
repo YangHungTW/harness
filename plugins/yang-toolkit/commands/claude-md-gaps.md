@@ -10,6 +10,28 @@ CLAUDE.md", delegate the actual content generation to the official
 `claude-md-management` plugin, and write the file ONLY after the user explicitly
 confirms.
 
+## Harness root (worktree-aware)
+
+Durable harness state (the candidates queue and the ledger) lives in the **MAIN**
+git worktree so it is shared across worktrees and survives worktree deletion.
+Resolve it once:
+
+```
+git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
+```
+
+Call the result `<HARNESS_ROOT>`. If that command yields nothing (no git, or not
+a repo), fall back to `<HARNESS_ROOT>` = `${CLAUDE_PROJECT_DIR}`. In the main
+worktree the two are identical, so non-worktree users see no change.
+
+Use `<HARNESS_ROOT>` for durable state:
+- `<HARNESS_ROOT>/.claude/state/claude-md-candidates.jsonl`
+- `<HARNESS_ROOT>/.claude/ledger.jsonl`
+
+Keep `${CLAUDE_PROJECT_DIR}` for ephemeral, per-worktree state: the
+`.claude/logs/session-*.jsonl` recent-activity read, the written CLAUDE.md
+target, and any `docs/decisions/` reference.
+
 ## Hard rules (read before doing anything)
 
 1. **You never write CLAUDE.md content yourself.** Generation belongs to the
@@ -31,7 +53,7 @@ confirms.
 ## Argument forms
 
 - No arguments -> review-mode: list pending candidates from
-  `${CLAUDE_PROJECT_DIR}/.claude/state/claude-md-candidates.jsonl`, ranked by
+  `<HARNESS_ROOT>/.claude/state/claude-md-candidates.jsonl`, ranked by
   score descending. Ask the user which one(s) to act on.
 - `--dir <path>` -> direct-mode: skip the candidate list and run the
   generate-review-write flow for the given folder. Verify it is a real
@@ -45,7 +67,7 @@ confirms.
 1. Determine `${CLAUDE_PROJECT_DIR}` (the user's repo). If unset, infer from
    cwd and tell the user what you inferred.
 2. **Review mode** (no `--dir` arg):
-   - Read `${CLAUDE_PROJECT_DIR}/.claude/state/claude-md-candidates.jsonl`.
+   - Read `<HARNESS_ROOT>/.claude/state/claude-md-candidates.jsonl`.
    - If the file is missing or empty, say: "No candidates recorded yet -- the
      passive hook only fires on Edit/Write/MultiEdit. Either edit a few files
      in a nested folder, or run with `--dir <path>` to nominate one directly."
@@ -74,8 +96,9 @@ For each user-selected folder, build a context bundle the generator can use:
   down to the parent of `target_dir`, so the generator knows what NOT to
   repeat. Read those CLAUDE.md files yourself; do not invent.
 - `recent_activity` -- a short summary of what's been edited in the folder
-  recently. Source this from `.claude/logs/session-*.jsonl` (last 7 days)
-  and the `.claude/ledger.jsonl` if present. Plain prose, 5-10 bullets.
+  recently. Source this from `${CLAUDE_PROJECT_DIR}/.claude/logs/session-*.jsonl`
+  (last 7 days) and `<HARNESS_ROOT>/.claude/ledger.jsonl` if present. Plain
+  prose, 5-10 bullets.
 - `domain_hints` -- file listing of the folder (one-pass, depth 1), grouped
   by extension. This is signal for what kind of code lives there.
 
@@ -131,9 +154,9 @@ On `accept`:
 1. Use the `Write` tool to write the draft to
    `${CLAUDE_PROJECT_DIR}/${target_dir}/CLAUDE.md`.
 2. Update the candidate record's `status` from `"pending"` to `"created"` in
-   `${CLAUDE_PROJECT_DIR}/.claude/state/claude-md-candidates.jsonl`. Preserve
+   `<HARNESS_ROOT>/.claude/state/claude-md-candidates.jsonl`. Preserve
    all other fields. (Re-write the file with the updated line.)
-3. Append a record to `${CLAUDE_PROJECT_DIR}/.claude/ledger.jsonl` using the
+3. Append a record to `<HARNESS_ROOT>/.claude/ledger.jsonl` using the
    harness ledger schema. Use this exact shape:
    ```
    {

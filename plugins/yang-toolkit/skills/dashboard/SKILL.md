@@ -9,8 +9,24 @@ description: Read the current repo's `.claude/ledger.jsonl` and render an HTML a
 Visualize the cross-task observability layer for the current repo. Inputs are
 ledger entries written by the Stop hook (or backfilled via /ledger-append).
 
+## Harness root (worktree-aware)
+
+The ledger is **durable** state and lives in the **MAIN** git worktree so it is
+shared across worktrees and survives worktree deletion. Resolve it once:
+
+```
+git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
+```
+
+Call the result `<HARNESS_ROOT>`. If that command yields nothing (no git, or not
+a repo), fall back to `<HARNESS_ROOT>` = `${CLAUDE_PROJECT_DIR}`. In the main
+worktree the two are identical, so non-worktree users see no change.
+
+Read the ledger from `<HARNESS_ROOT>/.claude/ledger.jsonl`. The rendered HTML is
+a per-worktree artifact and stays at `${CLAUDE_PROJECT_DIR}/.claude/dashboard.html`.
+
 ## Input contract
-A single file: `${CLAUDE_PROJECT_DIR}/.claude/ledger.jsonl`.
+A single file: `<HARNESS_ROOT>/.claude/ledger.jsonl`.
 Each line is a JSON object with these fields (controlled vocabulary):
 
 ```
@@ -39,7 +55,7 @@ The OPTIONAL `"source"` field distinguishes how an entry was written:
 not "zero tokens". Treat 0 as "no token data" wherever it would mislead.
 
 ## Behavior
-1. Read `${CLAUDE_PROJECT_DIR}/.claude/ledger.jsonl`. If the file is missing,
+1. Read `<HARNESS_ROOT>/.claude/ledger.jsonl`. If the file is missing,
    tell the user there is no ledger yet and to run `/feature-dev-tracked` or
    `/ledger-append` first, then STOP (do not write any HTML).
 2. Parse the file line by line as JSONL. For each line:

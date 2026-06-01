@@ -11,8 +11,26 @@ guarantees:
 1. **Per-phase decision docs** under
    `${CLAUDE_PROJECT_DIR}/docs/decisions/{YYYY-MM-DD}-{slug}/0X-{phase}.md`
 2. **One ledger record** appended to
-   `${CLAUDE_PROJECT_DIR}/.claude/ledger.jsonl` at the end (controlled-vocabulary
+   `<HARNESS_ROOT>/.claude/ledger.jsonl` at the end (controlled-vocabulary
    schema -- see below).
+
+## Harness root (worktree-aware)
+
+Durable state (the ledger) must live in the MAIN git worktree so it survives
+worktree deletion and is shared across worktrees. Resolve it once:
+
+```
+git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
+```
+
+Call the result `<HARNESS_ROOT>`. If that command is empty or this is not a git
+repo, fall back to `<HARNESS_ROOT>` = `${CLAUDE_PROJECT_DIR}`. In the main
+worktree these are identical, so non-worktree users see no change.
+
+Use `<HARNESS_ROOT>` ONLY for `<HARNESS_ROOT>/.claude/ledger.jsonl`. Keep
+everything else -- `docs/decisions/...` and
+`.claude/state/current-feature.txt` -- on `${CLAUDE_PROJECT_DIR}` (decision
+docs belong with the feature branch).
 
 ## Inputs
 - `$ARGUMENTS` -- a feature description in natural language. If empty, ask the
@@ -50,7 +68,7 @@ After each phase, **before** moving to the next:
 
 ### Step 3 -- ledger append (only on `summary` phase)
 At the end of `summary`, append exactly ONE line to
-`${CLAUDE_PROJECT_DIR}/.claude/ledger.jsonl` matching this schema:
+`<HARNESS_ROOT>/.claude/ledger.jsonl` matching this schema:
 
 ```
 {

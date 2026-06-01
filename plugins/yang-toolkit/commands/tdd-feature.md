@@ -8,6 +8,24 @@ You are running the **TDD-discipline** feature workflow. This is a sibling to
 `/yang-toolkit:feature-dev-tracked`; the two share the same decision-doc
 directory and ledger schema, so they're interoperable.
 
+## Harness root (worktree-aware)
+
+Durable state (the ledger) must live in the MAIN git worktree so it survives
+worktree deletion and is shared across worktrees. Resolve it once:
+
+```
+git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
+```
+
+Call the result `<HARNESS_ROOT>`. If that command is empty or this is not a git
+repo, fall back to `<HARNESS_ROOT>` = `${CLAUDE_PROJECT_DIR}`. In the main
+worktree these are identical, so non-worktree users see no change.
+
+Use `<HARNESS_ROOT>` ONLY for `<HARNESS_ROOT>/.claude/ledger.jsonl`. Keep
+everything else -- `docs/decisions/...` and
+`.claude/state/current-feature.txt` -- on `${CLAUDE_PROJECT_DIR}` (decision
+docs belong with the feature branch).
+
 ## The hard rule
 
 Every production code change in this workflow must be **driven by a failing
@@ -146,7 +164,7 @@ if no, proceed to Step 3.
 
 ### Step 4 -- ledger append
 
-Append ONE line to `${CLAUDE_PROJECT_DIR}/.claude/ledger.jsonl`:
+Append ONE line to `<HARNESS_ROOT>/.claude/ledger.jsonl`:
 
 ```
 {

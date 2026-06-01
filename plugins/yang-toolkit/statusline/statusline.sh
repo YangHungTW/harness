@@ -12,9 +12,19 @@ set -u
 cat - >/dev/null 2>&1 || true
 
 project_dir="${CLAUDE_PROJECT_DIR:-$PWD}"
+
+# harness_root = MAIN git worktree, so durable state survives worktree deletion
+# and is shared across worktrees. Falls back to project_dir when git is absent
+# or this is not a repo. Inlined (not sourced) to keep hooks dependency-free.
+harness_root="$project_dir"
+if command -v git >/dev/null 2>&1; then
+  _main="$(git -C "$project_dir" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+  [ -n "$_main" ] && harness_root="$_main"
+fi
+
 state_dir="${project_dir}/.claude/state"
 log_dir="${project_dir}/.claude/logs"
-ledger="${project_dir}/.claude/ledger.jsonl"
+ledger="${harness_root}/.claude/ledger.jsonl"
 
 today="$(date -u +%Y%m%d)"
 log_file="${log_dir}/session-${today}.jsonl"
