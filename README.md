@@ -432,10 +432,19 @@ claude --plugin-dir ./plugins/yang-toolkit
 
 ## Status
 
-`v0.1.0` -- scaffolded structure. Agents, skills, commands, and hooks are
-stubbed with TODOs; the dashboard HTML template is the only file complete
-enough to render on its own. See `harness-scaffolding-prompt.md` for the
-generation spec.
+`v0.5.0` -- functional. Commands, skills, hooks, statusline, and the
+`execute-plan-team` workflow are all implemented and in personal use
+(no warranty -- see the note at the top). Recent additions:
+
+- `v0.5.0` -- `workflow` orchestration mode for `/execute-plan`
+  (deterministic parallel fan-out via the built-in `Workflow` tool)
+- `v0.4.x` -- plan-first flow (`/plan-feature` + `/execute-plan`),
+  `--auto` execution
+- `v0.3.0` -- test-parity reminder hook
+- `v0.2.0` -- `/tdd-feature`
+
+`harness-scaffolding-prompt.md` records the original generation spec for
+reference; the live structure has since moved past it.
 
 ## License
 
