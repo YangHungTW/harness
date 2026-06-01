@@ -204,7 +204,7 @@
   <div class="hdr-title">
     harness <span class="slash">//</span> <span class="what">usage</span>
   </div>
-  <span class="badge">yang-toolkit v0.4.0</span>
+  <span class="badge">yang-toolkit v0.5.0</span>
   <span class="badge">2026-05-28</span>
   <span class="badge" style="margin-left:auto;"><b style="color:var(--text);">EN</b> · <a href="usage.zh.html">中文</a></span>
 </header>
@@ -262,17 +262,23 @@
   <p>Then open the produced file and edit:</p>
   <ul>
     <li><code>Acceptance Criteria</code> — each item needs <code>Check:</code> (a runnable command in backticks) and <code>Pass:</code> (an observable condition; no fuzzy words like <em>good</em>/<em>nice</em>/<em>clean</em>).</li>
-    <li><code>Files Touched</code> — paths or globs. Used both as scope guard and as work-split when running in team mode.</li>
-    <li>Frontmatter — confirm <code>discipline</code> (<code>tdd</code> | <code>normal</code>) and <code>orchestration</code> (<code>single</code> | <code>team</code>).</li>
+    <li><code>Files Touched</code> — paths or globs. Used both as scope guard and as work-split when running in <code>team</code> or <code>workflow</code> mode.</li>
+    <li>Frontmatter — confirm <code>discipline</code> (<code>tdd</code> | <code>normal</code>) and <code>orchestration</code> (<code>single</code> | <code>workflow</code> | <code>team</code>).</li>
   </ul>
 
-  <h3>Step 2 — dry-run to inspect the /goal it'll set</h3>
+  <h3>Step 2 — dry-run to inspect what it'll do</h3>
 <pre>/yang-toolkit:execute-plan <span class="cmd-flag">--dry-run</span></pre>
-  <p>Prints the parsed criteria, the assembled <code>/goal</code> condition, and the downstream command that would be invoked. No state is changed.</p>
+  <p>Prints the parsed criteria and resolved deps. In <code>single</code>/<code>team</code> mode it also shows the assembled <code>/goal</code> condition and the downstream command; in <code>workflow</code> mode it shows the <code>args</code> that would be passed to the workflow plus the directory-affinity partition of Files Touched (so you can eyeball whether the slices are actually disjoint). No state is changed.</p>
 
   <h3>Step 3 — execute</h3>
 <pre>/yang-toolkit:execute-plan</pre>
-  <p>Sets <code>/goal</code> from the criteria, switches plan <code>status: executing</code>, delegates to <code>tdd-feature</code> or <code>feature-dev-tracked</code> based on <code>discipline</code>. On completion, writes a <code>## Execution Log</code> block back into the plan and appends one ledger record with <code>plan_path</code>, <code>goal_turns</code>, <code>orchestration</code>.</p>
+  <p>Runs the plan one of three ways per its <code>orchestration</code>:</p>
+  <ul>
+    <li><strong><code>single</code></strong> (default) — sets <code>/goal</code> from the criteria, switches <code>status: executing</code>, delegates to <code>tdd-feature</code> or <code>feature-dev-tracked</code> by <code>discipline</code>.</li>
+    <li><strong><code>workflow</code></strong> — deterministic parallel fan-out via the built-in <code>Workflow</code> tool (<code>workflows/execute-plan-team.workflow.js</code>): partitions Files Touched into disjoint slices, implements them concurrently (Phase 1), then verifies every Acceptance Criterion by running its Check command (Phase 2). No <code>/goal</code> loop — the Verify phase is the completion check.</li>
+    <li><strong><code>team</code></strong> — experimental agent-teams (see callout in §7); kept for back-compat.</li>
+  </ul>
+  <p>On completion (any mode) it writes a <code>## Execution Log</code> block back into the plan and appends one ledger record with <code>plan_path</code>, <code>orchestration</code>, and mode-specific fields (<code>goal_turns</code> for single/team; <code>workers</code>/<code>criteria_pass</code>/<code>criteria_fail</code> for workflow).</p>
 
   <h3>Revising or replanning</h3>
   <table>
@@ -288,11 +294,11 @@
     <thead><tr><th>Flag</th><th>Use when</th></tr></thead>
     <tbody>
       <tr><td><code>--from &lt;slug&gt;</code></td><td>Run an explicit plan instead of the most-recent draft.</td></tr>
-      <tr><td><code>--single</code> / <code>--team</code></td><td>Override the plan's <code>orchestration</code> for this run only.</td></tr>
-      <tr><td><code>--auto</code></td><td>Enter auto mode for this run so the <code>/goal</code> loop runs unattended. Without it each turn still pauses for tool approval -- <code>/goal</code> alone only removes per-turn prompts.</td></tr>
+      <tr><td><code>--single</code> / <code>--workflow</code> / <code>--team</code></td><td>Override the plan's <code>orchestration</code> for this run only.</td></tr>
+      <tr><td><code>--auto</code></td><td>Enter auto mode for this run so the <code>/goal</code> loop (single/team) or the workflow's agents run unattended. Without it each turn still pauses for tool approval -- <code>/goal</code> alone only removes per-turn prompts.</td></tr>
       <tr><td><code>--no-goal</code></td><td>Skip <code>/goal</code> setup; you control turn-by-turn.</td></tr>
       <tr><td><code>--ignore-deps</code></td><td>Proceed even if <code>depends_on</code> items aren't <code>done</code> (recorded in ledger).</td></tr>
-      <tr><td><code>--dry-run</code></td><td>Parse + show /goal + show delegate target; no execution.</td></tr>
+      <tr><td><code>--dry-run</code></td><td>Parse + show /goal + delegate target (single/team) or workflow args + partition map (workflow); no execution.</td></tr>
     </tbody>
   </table>
 
@@ -390,9 +396,20 @@ claude <span class="cmd-flag">--worktree</span> <span class="cmd-str">feature-au
 claude <span class="cmd-flag">--continue</span>                   <span class="cmd-comment"># resume most-recent session</span>
 claude <span class="cmd-flag">--resume</span>                     <span class="cmd-comment"># pick from list</span></pre>
   <div class="callout">
+    <strong>Workflow mode</strong> (<code>orchestration: workflow</code>) is the
+    recommended parallel option. It fans out via the built-in <code>Workflow</code>
+    tool, partitioning Files Touched into <em>disjoint</em> slices that build
+    concurrently, then verifying each Acceptance Criterion. No experimental flag
+    needed. Precondition: the slices must be separable by directory — if workers
+    would all need the same shared file, prefer <code>--single</code> (the command
+    warns and surfaces any <code>scopeViolations</code> if they overlap).
+  </div>
+  <div class="callout">
     <strong>Agent teams</strong> (used when a plan has <code>orchestration: team</code>)
     require <code>CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</code> in env or settings.
     Without it, <code>execute-plan</code> warns and falls back to <code>single</code>.
+    Prefer <code>workflow</code> unless you specifically want long-lived teammates
+    that message each other.
   </div>
 </section>
 

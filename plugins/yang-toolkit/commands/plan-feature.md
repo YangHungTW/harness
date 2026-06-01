@@ -102,8 +102,8 @@ using this exact skeleton:
 slug: <slug>
 created_at: <ISO8601 UTC now>
 discipline: <tdd | normal>           # ask user; default normal
-orchestration: <single | team>        # ask user; default single
-team_size: 3                          # only if orchestration=team
+orchestration: <single | team | workflow>  # ask user; default single
+team_size: 3                          # parallel workers; used by team AND workflow
 time_budget: 25 turns                 # optional; default 25
 depends_on: []                        # filled only if user confirmed any
 status: draft

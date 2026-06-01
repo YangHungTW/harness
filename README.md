@@ -34,10 +34,13 @@ hook and show up in the statusline / dashboard automatically.
   `/execute-plan` when ready. Supports `--from <slug>` (replan) and
   `--revise <slug>` (append a revision section).
 - `/yang-toolkit:execute-plan` -- parse + validate a plan, resolve
-  `depends_on`, assemble a `/goal` condition from Acceptance Criteria,
-  set state, and delegate to `tdd-feature` or `feature-dev-tracked`
-  based on the plan's `discipline`. `--dry-run` shows the assembled
-  /goal without executing.
+  `depends_on`, then run it per the plan's `orchestration`: `single`
+  (assemble a `/goal` condition and delegate to `tdd-feature` /
+  `feature-dev-tracked` by `discipline`), `workflow` (deterministic
+  parallel fan-out via the built-in `Workflow` tool — see
+  `workflows/execute-plan-team.workflow.js`), or `team` (experimental
+  agent-teams). `--dry-run` shows the assembled /goal (or the workflow
+  args + partition map) without executing.
 - `/yang-toolkit:feature-dev-tracked` -- wraps `/feature-dev`, writes per-phase
   decision docs + one ledger summary
 - `/yang-toolkit:tdd-feature` -- TDD-discipline sibling. Can continue from a
@@ -47,6 +50,15 @@ hook and show up in the statusline / dashboard automatically.
 - `/yang-toolkit:claude-md-gaps` -- review nested-folder CLAUDE.md gap candidates,
   delegate generation to the official `claude-md-management` plugin, gated on
   user confirmation (see "Nested CLAUDE.md gap detection" below)
+
+**Workflows** (`plugins/yang-toolkit/workflows/`)
+- `execute-plan-team.workflow.js` -- deterministic parallel fan-out for
+  `/yang-toolkit:execute-plan` when a plan sets `orchestration: workflow`.
+  Partitions Files Touched into disjoint slices by directory affinity,
+  implements each slice concurrently (Phase 1), then verifies every
+  Acceptance Criterion by running its Check command (Phase 2). Invoked
+  via the built-in `Workflow` tool with the parsed plan passed as `args`
+  (the script has no filesystem access; all I/O happens inside agents).
 
 **Hooks** (`plugins/yang-toolkit/hooks/hooks.json`)
 - `PreToolUse` -> `.claude/logs/session-{YYYYMMDD}.jsonl`
@@ -138,7 +150,7 @@ TDD discipline matters:
 | Step | Command | What it does |
 | ---- | ------- | ------------ |
 | 0p. Plan (optional pre-stage) | `/yang-toolkit:plan-feature "<description>"` | Enters plan mode, recalls past context (ledger + CLAUDE.md + decision dirs), writes `.claude/plans/<slug>.md`. Auto-suggests `depends_on` for related unfinished features. Review the file, edit if needed. |
-| 0x. Execute the plan | `/yang-toolkit:execute-plan` (or `--from <slug>`, `--dry-run`, `--single` / `--team`, `--auto` overrides) | Parses + validates the plan, assembles a `/goal` condition from Acceptance Criteria, then delegates to `tdd-feature` or `feature-dev-tracked` based on the plan's `discipline`. With `--auto` also enters auto mode so the `/goal` loop runs unattended. Updates plan status + appends ledger at the end. |
+| 0x. Execute the plan | `/yang-toolkit:execute-plan` (or `--from <slug>`, `--dry-run`, `--single` / `--team` / `--workflow`, `--auto` overrides) | Parses + validates the plan, then runs it one of three ways per the plan's `orchestration`: **single** (sequential `/goal` loop → `tdd-feature` / `feature-dev-tracked`), **workflow** (deterministic parallel fan-out via the built-in `Workflow` tool — partitions Files Touched into disjoint slices, implements them concurrently, then verifies each Acceptance Criterion), or **team** (experimental agent-teams). With `--auto` the `single`/`team` `/goal` loop runs unattended. Updates plan status + appends ledger at the end. |
 | 0a. Start (regular flow, no plan stage) | `/yang-toolkit:feature-dev-tracked "<one-line description>"` | Wraps `/feature-dev`. Drives discovery -> architecture -> implementation -> review -> summary; writes one decision doc per phase under `docs/decisions/{date}-{slug}/`; appends a ledger summary at the end. |
 | 0b. Start (TDD flow, no plan stage) | `/yang-toolkit:tdd-feature "<description>"` OR `/yang-toolkit:tdd-feature` (continues from a paused feature-dev-tracked) | Enforces red -> green -> refactor per test case; writes a `02b-test-plan.md` then a `03-tdd-cycles.md` log; shares the same decision dir and ledger schema as feature-dev-tracked. Adds a `cycles` field to the ledger entry. |
 | 1. (during discovery, auto) | -- | `code-explorer` agent (ships with `feature-dev`) traces the codebase. No command needed. |

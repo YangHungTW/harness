@@ -13,7 +13,7 @@ directly.
 ## Inputs
 - `$ARGUMENTS` -- empty, or any combination of:
   - `--from <slug>` -- explicit plan to run
-  - `--single` / `--team` -- override `orchestration` from frontmatter
+  - `--single` / `--team` / `--workflow` -- override `orchestration` from frontmatter
   - `--auto` -- enter auto mode for the duration of this run so the `/goal` loop runs unattended (otherwise each turn still pauses for tool approval)
   - `--no-goal` -- skip `/goal` setup (user wants manual turn-by-turn control)
   - `--ignore-deps` -- proceed even if `depends_on` items aren't `done`
@@ -175,8 +175,19 @@ opt-in.
 
 ## Step 5 -- decide orchestration and delegate
 
-Read frontmatter `orchestration`; override with `--single` or `--team`
-flag if passed.
+Read frontmatter `orchestration`; override with `--single`, `--team`,
+or `--workflow` flag if passed.
+
+Three modes:
+- `single` -- sequential `/goal` loop, delegates to one downstream
+  command. Default; best for tightly-coupled changes.
+- `workflow` -- deterministic parallel fan-out via the built-in
+  `Workflow` tool. Best when Files Touched split cleanly into
+  **disjoint** slices (different dirs/subsystems) that can be built
+  concurrently. This is the recommended parallel mode.
+- `team` -- experimental agent-teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`).
+  Kept for back-compat; prefer `workflow` unless you specifically want
+  long-lived teammates that message each other.
 
 ### single
 Branch on `discipline`:
@@ -190,6 +201,41 @@ Branch on `discipline`:
   Goal as the natural-language argument; slug derivation is
   deterministic so the decision dir lines up. The state pointer set
   in Step 4 takes precedence.
+
+### workflow
+
+Delegate to the bundled deterministic fan-out script instead of the
+`/goal` loop. The script lives in the plugin at
+`${CLAUDE_PLUGIN_ROOT}/workflows/execute-plan-team.workflow.js`.
+
+1. **Do NOT issue `/goal`** in this mode -- the workflow's Verify phase
+   is the completion check, so skip Step 3's `/goal` setup (treat it as
+   `--no-goal`). If `--auto` was passed, still apply auto mode so the
+   workflow's agents don't pause for per-tool approval.
+2. Invoke the `Workflow` tool with `scriptPath` set to the absolute
+   path of `execute-plan-team.workflow.js` (resolve `${CLAUDE_PLUGIN_ROOT}`
+   yourself) and `args` set to the parsed plan as a JSON value:
+   ```
+   {
+     "slug": "<slug>",
+     "goal": "<# Goal text>",
+     "acceptanceCriteria": [ { "name": "...", "check": "...", "pass": "..." }, ... ],
+     "filesTouched": [ "<path or glob>", ... ],
+     "outOfScope": [ "<bullet>", ... ],
+     "depSummaries": [ "<~100-token dep blurb>", ... ],
+     "teamSize": <frontmatter team_size, default 3>
+   }
+   ```
+   Pass `args` as an actual JSON object, never a stringified blob.
+3. **Disjointness precondition**: the workflow partitions Files Touched
+   into disjoint slices and runs them concurrently in the working tree
+   (no worktree isolation). Before invoking, sanity-check that the plan's
+   Files Touched are reasonably separable by directory. If they look
+   heavily overlapping (e.g. many globs over one file, or every worker
+   would need the same shared module), warn the user that `workflow`
+   mode may produce `scopeViolations`, and offer `--single` instead.
+4. The workflow returns a result object (see Step 7's workflow branch).
+   Do not poll; the tool re-invokes you when it finishes.
 
 ### team
 1. Verify the `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var is set.
@@ -207,22 +253,39 @@ Branch on `discipline`:
 
 ## Step 6 -- run
 
-Issue `/goal <condition>` (unless `--no-goal`). Then send the opening
-prompt that delegates to the chosen downstream command (or spawns the
-team).
+**`single` / `team` modes**: issue `/goal <condition>` (unless
+`--no-goal`), then send the opening prompt that delegates to the chosen
+downstream command (or spawns the team). Monitor at session boundaries
+only; do not poll. When the session ends -- by goal achievement, by
+user `/goal clear`, by error, or by budget exhaustion -- proceed to
+Step 7.
 
-Monitor at session boundaries only; do not poll. When the session
-ends -- by goal achievement, by user `/goal clear`, by error, or by
-budget exhaustion -- proceed to Step 7.
+**`workflow` mode**: the `Workflow` tool invocation in Step 5 already
+launched the run. It executes in the background and re-invokes you on
+completion with the result object -- do not poll. When the result
+arrives, proceed to Step 7's workflow branch.
 
 ## Step 7 -- close out
 
 1. **Determine final outcome**:
+
+   `single` / `team` modes:
    - goal evaluator returned achieved -> `done`
    - user `/goal clear` or explicit stop -> `abandoned` (in ledger;
      plan status stays `executing` so resume is the natural action)
    - turn budget exhausted -> `failed`
    - downstream command errored unrecoverably -> `failed`
+
+   `workflow` mode (read the returned result object):
+   - `result.achieved === true` (every criterion passed, no failures)
+     -> `done`
+   - any `result.criteria.failed > 0` -> `failed`; quote each failing
+     verdict's `name` + `evidence` to the user
+   - `result.error` set (e.g. `no-files-touched`) -> `failed`
+   - `result.scopeViolations` non-empty -> still use the criteria
+     verdict for outcome, but ALWAYS surface the violations: partitions
+     overlapped, so the parallel result may be unreliable. Recommend a
+     `--single` re-run if any criterion also failed.
 
 2. **Update plan frontmatter**:
    - `status: done` or `status: failed` (NOT for abandoned)
@@ -232,17 +295,23 @@ budget exhaustion -- proceed to Step 7.
    - run number (1 if first)
    - `started_at`, `finished_at`, duration
    - outcome
-   - goal evaluator's final reason, quoted verbatim
-   - turn count and approx token count
+   - orchestration mode used
+   - `single` / `team`: goal evaluator's final reason quoted verbatim,
+     turn count, approx token count, downstream command used
+   - `workflow`: worker count + partition map, per-criterion pass/fail
+     table from `result.verdicts` (quote failing `evidence` verbatim),
+     and any `result.scopeViolations`
    - whether any Files Touched scope-guard violations were observed
-   - downstream command used
 
 4. **Append ONE record** to `${CLAUDE_PROJECT_DIR}/.claude/ledger.jsonl`
    matching the feature-dev-tracked schema plus these extras:
    ```
    "plan_path":      ".claude/plans/<slug>.md",
-   "goal_turns":     <int or null>,
-   "orchestration":  "single" | "team",
+   "goal_turns":     <int or null>,                 // null in workflow mode (no /goal loop)
+   "orchestration":  "single" | "team" | "workflow",
+   "workers":        <int>,                          // workflow mode only: result.workers
+   "criteria_pass":  <int>,                           // workflow mode only: result.criteria.passed
+   "criteria_fail":  <int>,                           // workflow mode only: result.criteria.failed
    "deps_ignored":   [<slug>, ...]   // omit field entirely if empty
    ```
    `outcome` follows the controlled set
@@ -268,9 +337,13 @@ budget exhaustion -- proceed to Step 7.
 
 After Step 3, instead of writing state or executing:
 - print the parsed Acceptance Criteria
-- print the assembled `/goal` condition
-- print which downstream command would be invoked, with what arguments
 - print resolved `depends_on` summaries
+- `single` / `team`: print the assembled `/goal` condition and which
+  downstream command would be invoked, with what arguments
+- `workflow`: print the `args` object that would be passed to
+  `execute-plan-team.workflow.js`, and the directory-affinity partition
+  of Files Touched into `team_size` buckets (so the user can eyeball
+  whether the slices are actually disjoint before a real run)
 - exit
 
 Do NOT change `status`. Do NOT write `current-feature.txt`. Do NOT
@@ -284,6 +357,10 @@ touch the ledger.
 | `depends_on` chain has a cycle                                                     | Abort Step 2 with the cycle path printed (e.g. `A -> B -> C -> A`).                                                                              |
 | Goal evaluator runs > 50 turns with no resolution and no `time_budget` set        | Self-stop, mark `failed`, but do NOT delete the plan. User can `--revise` then re-run.                                                            |
 | Team mode requested but env var not set                                            | Warn, fall back to single. Record in Execution Log: "team mode requested but disabled; ran single."                                              |
+| Workflow mode but Files Touched are not separable into disjoint slices             | Warn before launching; offer `--single`. If user proceeds, surface any `scopeViolations` from the result and recommend a single re-run.          |
+| Workflow mode but plan has 0 Files Touched                                          | Script returns `{ error: 'no-files-touched' }`; mark outcome `failed`, tell user to add Files Touched and re-run.                                |
+| Workflow result has failing criteria                                               | Mark `failed`; quote each failing verdict's `name` + `evidence`. Plan status -> `failed`; user can `--revise` then re-run.                       |
+| `execute-plan-team.workflow.js` not found at `${CLAUDE_PLUGIN_ROOT}/workflows/`     | Abort before launch; tell user the plugin install may be incomplete. Suggest `--single` as a fallback for this run.                              |
 | Plan `status: executing` at invocation                                             | Ask resume / reset / abort. On resume, keep `started_at` but DO re-issue `/goal` (its evaluator clock resets on session resume regardless).      |
 | Downstream command unavailable                                                     | Abort before `/goal` is set. Suggest installing the relevant plugin.                                                                              |
 | Assembled `/goal` condition exceeds 4000 characters                                | Abort. Suggest shrinking criteria or splitting the plan into pieces linked via `depends_on`.                                                      |

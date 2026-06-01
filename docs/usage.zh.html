@@ -205,7 +205,7 @@
   <div class="hdr-title">
     harness <span class="slash">//</span> <span class="what">使用說明</span>
   </div>
-  <span class="badge">yang-toolkit v0.4.0</span>
+  <span class="badge">yang-toolkit v0.5.0</span>
   <span class="badge">2026-05-28</span>
   <span class="badge" style="margin-left:auto;"><a href="usage.html">EN</a> · <b style="color:var(--text);">中文</b></span>
 </header>
@@ -262,17 +262,23 @@
   <p>打開檔案編輯：</p>
   <ul>
     <li><code>Acceptance Criteria</code>（驗收條件）— 每條都要有 <code>Check:</code>（包在 backtick 裡的可執行命令）跟 <code>Pass:</code>（可觀測條件；不能用模糊詞如 <em>good</em>、<em>nice</em>、<em>clean</em>）。</li>
-    <li><code>Files Touched</code>（涉及檔案）— 路徑或 glob。同時作為範圍守衛、以及 team mode 下的分工依據。</li>
-    <li>frontmatter — 確認 <code>discipline</code>（<code>tdd</code> | <code>normal</code>）和 <code>orchestration</code>（<code>single</code> | <code>team</code>）。</li>
+    <li><code>Files Touched</code>（涉及檔案）— 路徑或 glob。同時作為範圍守衛、以及 <code>team</code> / <code>workflow</code> mode 下的分工依據。</li>
+    <li>frontmatter — 確認 <code>discipline</code>（<code>tdd</code> | <code>normal</code>）和 <code>orchestration</code>（<code>single</code> | <code>workflow</code> | <code>team</code>）。</li>
   </ul>
 
-  <h3>Step 2 — dry-run 看會下什麼 /goal</h3>
+  <h3>Step 2 — dry-run 看它會做什麼</h3>
 <pre>/yang-toolkit:execute-plan <span class="cmd-flag">--dry-run</span></pre>
-  <p>印出解析後的 criteria、組好的 <code>/goal</code> condition、會委派到哪個下游指令。不改任何狀態。</p>
+  <p>印出解析後的 criteria 和已解析的相依。<code>single</code>/<code>team</code> 模式還會印組好的 <code>/goal</code> condition 跟下游指令；<code>workflow</code> 模式則印要傳給 workflow 的 <code>args</code>，外加 Files Touched 依目錄親緣性的分割結果（讓你先目視確認各 slice 是否真的不相交）。不改任何狀態。</p>
 
   <h3>Step 3 — 真的執行</h3>
 <pre>/yang-toolkit:execute-plan</pre>
-  <p>設好 <code>/goal</code>、把 plan 狀態改成 <code>executing</code>、依 <code>discipline</code> 委派到 <code>tdd-feature</code> 或 <code>feature-dev-tracked</code>。完成時把 <code>## Execution Log</code> 區塊寫回 plan，並 append 一筆 ledger record（多 <code>plan_path</code>、<code>goal_turns</code>、<code>orchestration</code> 三個欄位）。</p>
+  <p>依 plan 的 <code>orchestration</code> 用三種方式之一執行：</p>
+  <ul>
+    <li><strong><code>single</code></strong>（預設）— 從 criteria 設好 <code>/goal</code>、把狀態改成 <code>executing</code>、依 <code>discipline</code> 委派到 <code>tdd-feature</code> 或 <code>feature-dev-tracked</code>。</li>
+    <li><strong><code>workflow</code></strong> — 透過內建 <code>Workflow</code> 工具做確定性平行 fan-out（<code>workflows/execute-plan-team.workflow.js</code>）：把 Files Touched 切成不相交的 slice 平行實作（Phase 1），再逐條跑每個 Acceptance Criterion 的 Check 指令驗收（Phase 2）。不用 <code>/goal</code> 迴圈 — Verify 階段就是完成判定。</li>
+    <li><strong><code>team</code></strong> — 實驗性 agent-teams（見 §7 callout）；保留向後相容。</li>
+  </ul>
+  <p>任一模式完成時，都會把 <code>## Execution Log</code> 區塊寫回 plan，並 append 一筆 ledger record（含 <code>plan_path</code>、<code>orchestration</code>，以及各模式專屬欄位：single/team 是 <code>goal_turns</code>；workflow 是 <code>workers</code>/<code>criteria_pass</code>/<code>criteria_fail</code>）。</p>
 
   <h3>修訂或重新規劃</h3>
   <table>
@@ -288,11 +294,11 @@
     <thead><tr><th>Flag</th><th>使用時機</th></tr></thead>
     <tbody>
       <tr><td><code>--from &lt;slug&gt;</code></td><td>指定執行某個 plan，不要拿最新的 draft。</td></tr>
-      <tr><td><code>--single</code> / <code>--team</code></td><td>本次蓋掉 plan 內的 <code>orchestration</code>。</td></tr>
-      <tr><td><code>--auto</code></td><td>本次進入 auto mode，讓 <code>/goal</code> 迴圈無人值守。沒加的話每輪還是會停下等 tool approval — <code>/goal</code> 只負責省掉 per-turn 確認。</td></tr>
+      <tr><td><code>--single</code> / <code>--workflow</code> / <code>--team</code></td><td>本次蓋掉 plan 內的 <code>orchestration</code>。</td></tr>
+      <tr><td><code>--auto</code></td><td>本次進入 auto mode，讓 <code>/goal</code> 迴圈（single/team）或 workflow 的 agent 無人值守。沒加的話每輪還是會停下等 tool approval — <code>/goal</code> 只負責省掉 per-turn 確認。</td></tr>
       <tr><td><code>--no-goal</code></td><td>不設 <code>/goal</code>，由你自己 step through。</td></tr>
       <tr><td><code>--ignore-deps</code></td><td>強制執行，即使 <code>depends_on</code> 還沒 <code>done</code>（會記在 ledger）。</td></tr>
-      <tr><td><code>--dry-run</code></td><td>解析 + 顯示 /goal + 顯示委派目標；不執行。</td></tr>
+      <tr><td><code>--dry-run</code></td><td>解析 + 顯示 /goal + 委派目標（single/team）或 workflow args + 分割預覽（workflow）；不執行。</td></tr>
     </tbody>
   </table>
 
@@ -390,9 +396,17 @@ claude <span class="cmd-flag">--worktree</span> <span class="cmd-str">feature-au
 claude <span class="cmd-flag">--continue</span>                   <span class="cmd-comment"># 接最近一個 session</span>
 claude <span class="cmd-flag">--resume</span>                     <span class="cmd-comment"># 從清單選</span></pre>
   <div class="callout">
+    <strong>Workflow 模式</strong>（<code>orchestration: workflow</code>）是建議的平行選項。
+    它透過內建 <code>Workflow</code> 工具 fan-out，把 Files Touched 切成<em>不相交</em>的
+    slice 平行建置，再逐條驗收 Acceptance Criterion，不需任何實驗性 flag。前提：各 slice
+    要能依目錄分開 — 若所有 worker 都得改同一個共用檔，請改用 <code>--single</code>（重疊時
+    指令會警告並把 <code>scopeViolations</code> 浮出來）。
+  </div>
+  <div class="callout">
     <strong>Agent teams</strong>（當 plan 設 <code>orchestration: team</code> 時用）
     需要 env 或 settings 裡有 <code>CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</code>。
     沒設的話，<code>execute-plan</code> 會警告並 fallback 到 <code>single</code>。
+    除非你特別想要會互相傳訊的長壽 teammate，否則優先用 <code>workflow</code>。
   </div>
 </section>
 
