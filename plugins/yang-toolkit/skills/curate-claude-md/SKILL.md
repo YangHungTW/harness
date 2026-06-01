@@ -22,20 +22,78 @@ description: Audit and (re)generate nested CLAUDE.md files across the current re
 ### Mode A -- standalone curate (the original purpose)
 Triggered by `/curate-claude-md` or the natural-language phrases above.
 
-1. Walk the repo, find every existing CLAUDE.md (root + nested).
-2. Classify each line: technical-rule vs business-rule.
-3. Propose moves: business rules drift down to the nearest meaningful
-   sub-directory; technical rules drift up to the root.
-4. Detect drift against code: if CLAUDE.md says "use yarn" but the lockfile is
-   `package-lock.json`, flag it.
-5. Emit a unified diff with per-move rationale. **Do not write anything until
-   the user confirms.**
+Goal: audit every CLAUDE.md in the current repo, classify each rule as
+technical (belongs at the root) or business (belongs in the nearest meaningful
+sub-directory), detect drift against the actual code, and present a unified
+diff for the user to confirm. **Write nothing until the user says yes.**
 
-<!-- TODO: implement the audit walk + classifier + diff renderer.
-     Suggested classifier signal: words like "formatter", "test", "lint",
-     "branch", "PR", language/runtime names -> technical (upper). Words that
-     name domain objects, money units, status enums, permission boundaries
-     -> business (nested). -->
+Execute these steps in order:
+
+**Step 1 -- Discover every CLAUDE.md.**
+- List candidates without descending into noise dirs. Prefer:
+  `git ls-files '**/CLAUDE.md' 'CLAUDE.md'` when inside a git repo (respects
+  `.gitignore`). If that returns nothing or git is unavailable, fall back to:
+  `find . -name CLAUDE.md -not -path '*/.git/*' -not -path '*/node_modules/*' -not -path '*/.venv/*' -not -path '*/dist/*' -not -path '*/build/*'`.
+- Read each discovered file with the Read tool. Note its directory (root vs
+  which sub-tree) -- that is its current "layer".
+- **Never read or touch `~/.claude/CLAUDE.md`.** If a path resolves to the
+  user's home `~/.claude/CLAUDE.md`, skip it silently.
+- If the discovery finds NO CLAUDE.md anywhere, jump to Step 5 (scaffold).
+
+**Step 2 -- Classify each line / bullet.**
+For every meaningful line (skip blank lines, headings, and pure prose), tag it
+**technical** or **business** using these signals:
+- *Technical (belongs at root)* -- mentions a formatter (prettier, black,
+  gofmt, rustfmt), a test runner (jest, pytest, vitest, go test), a linter
+  (eslint, ruff, flake8, clippy), build/package tooling (npm, yarn, pnpm,
+  poetry, cargo, make), branch / PR / commit conventions, CI, or a
+  language/runtime version pin (e.g. "Node 20", "Python 3.11", "Go 1.22").
+- *Business (belongs in a sub-directory)* -- names a domain object or entity,
+  a money/unit convention (cents vs dollars, currency, rounding), a status
+  enum or state machine, a permission / authorization boundary, an
+  invariant tied to one module, or a module-specific gotcha.
+- If a line matches neither list, leave it where it is and do not propose a
+  move (low confidence; only move what the signals justify).
+
+**Step 3 -- Propose moves.**
+- A **business** line currently in the root (or an ancestor) -> move it DOWN to
+  the nearest sub-directory that actually owns that concept. Infer the target
+  by matching the domain term to a directory name, an import path seen in
+  `recent-activity`, or where files of that concern live (e.g. a rule about
+  "Order totals" -> `src/orders/CLAUDE.md`). If no clear owner exists, leave it
+  and note "no obvious owner directory" rather than guessing.
+- A **technical** line currently in a sub-directory CLAUDE.md -> move it UP to
+  the root CLAUDE.md.
+- Apply the DRY rule from the layered-discipline section above: if a moved
+  business rule restates something the ancestor already says, replace the
+  duplicate body with a one-line reference (and optionally `@../CLAUDE.md`)
+  instead of copying.
+
+**Step 4 -- Detect drift against the actual code.**
+Cross-check each technical claim against repo reality and flag mismatches:
+- Package manager: if a CLAUDE.md says "use yarn" but only `package-lock.json`
+  exists -> flag (similarly pnpm vs `pnpm-lock.yaml`, npm vs `yarn.lock`).
+- Language/runtime version: compare a pinned version against `.nvmrc`,
+  `engines` in `package.json`, `pyproject.toml` / `.python-version`,
+  `go.mod`, `rust-toolchain*` -- flag contradictions.
+- Tooling presence: if it names a tool (e.g. "run `make test`") that has no
+  corresponding config/target/dependency in the repo -> flag as stale.
+- Report each drift item as a one-line warning alongside the move it relates
+  to; the user decides whether to fix the doc or the code.
+
+**Step 5 -- Emit the result. Write nothing yet.**
+- If at least one CLAUDE.md exists: present a single **unified diff** (one
+  hunk per file touched, using standard `--- a/path` / `+++ b/path` /
+  `@@` format) covering every proposed move and DRY rewrite, followed by a
+  short **per-move rationale** list (one line each: what moved, from -> to,
+  why, plus any drift flag). Then ask the user to confirm before any write.
+- If NO CLAUDE.md exists at all: do not audit. Instead propose a minimal
+  root-`CLAUDE.md` scaffold (as a fenced block) containing just the technical
+  essentials you can verify from the repo -- detected package manager, test
+  command, lint/format command, language version, branch/PR convention if
+  discoverable -- and nothing speculative. Present it and ask to confirm.
+- Only after explicit user confirmation do you apply the diff / write the
+  scaffold. Never mutate `~/.claude/CLAUDE.md` in either case.
 
 ### Mode B -- fallback generator for /yang-toolkit:claude-md-gaps
 Triggered when `/yang-toolkit:claude-md-gaps` delegates here because the

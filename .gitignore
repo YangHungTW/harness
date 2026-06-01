@@ -25,6 +25,8 @@ yarn-error.log*
 .claude/logs/
 .claude/state/
 .claude/dashboard.html
+.claude/scheduled_tasks.lock
+.claude/*.lock
 
 # Local-only overrides
 .env

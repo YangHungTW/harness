@@ -68,9 +68,13 @@ hook and show up in the statusline / dashboard automatically.
   - test-parity nudge: if a production-code file was edited but no test
     mirror has been touched in this session, inject a reminder into Claude's
     next-turn context (see "Test parity reminder" below)
+- `UserPromptSubmit` -> reset `.claude/state/current-agent.txt` to `main`
+  (the pointer otherwise sticks at the last subagent name after it finishes)
 - `SubagentStop` -> `.claude/state/current-agent.txt`
-- `Stop` -> append summary to `.claude/ledger.jsonl` (outcome=`in-progress`,
-  user-correctable via `/ledger-append`)
+- `Stop` -> append summary to `.claude/ledger.jsonl` ONLY when a feature is in
+  flight (`.claude/state/current-feature.txt` non-empty); the appended entry is
+  tagged `source:"stop-hook"` with outcome=`in-progress` (user-correctable via
+  `/ledger-append`). If no feature is in flight the hook exits without appending.
 
 **Statusline** (`plugins/yang-toolkit/statusline/statusline.sh`)
 - bash 3.2 / BSD portable
@@ -89,8 +93,11 @@ hook and show up in the statusline / dashboard automatically.
 /plugin install yang-toolkit@harness
 ```
 
-Installing `yang-toolkit` auto-installs five upstream dependencies from the
-`claude-plugins-official` marketplace (which auto-loads in every Claude Code):
+Installing `yang-toolkit` declares five upstream dependencies from the
+`claude-plugins-official` marketplace (which auto-loads in every Claude Code).
+Whether they are auto-installed depends on your Claude Code version honoring the
+plugin-manifest `dependencies` field -- not all versions do. Treat auto-install
+as best-effort:
 
 | Auto-installed dependency | Used by harness for |
 | ------------------------- | ------------------- |
@@ -100,8 +107,9 @@ Installing `yang-toolkit` auto-installs five upstream dependencies from the
 | `code-simplifier`         | post-review cleanup pass to simplify implementation code |
 | `commit-commands`         | `/commit` / `/push` / `/create-pr` commands used at the tail of every feature |
 
-Claude Code lists all five at the end of the install output. You can confirm
-with `claude plugin list` afterward.
+Confirm what actually landed with `claude plugin list` after installing, and
+install any missing dependency manually, e.g. `/plugin install
+feature-dev@claude-plugins-official`.
 
 Explicitly NOT auto-installed (install separately if you want them):
 `pr-review-toolkit` (overlaps with `code-review`), `frontend-design`
@@ -134,8 +142,9 @@ official statusline docs for the latest interpolation rules.)
 ### Passive (no commands, just happens while you work)
 - `PreToolUse` hook -> append every tool call to `.claude/logs/session-YYYYMMDD.jsonl`
 - `PostToolUse` hook (Edit/Write/MultiEdit) -> score the touched folder, dedupe-append candidates to `.claude/state/claude-md-candidates.jsonl`
+- `UserPromptSubmit` hook -> reset `.claude/state/current-agent.txt` to `main` at the start of each turn
 - `SubagentStop` hook -> write running agent name to `.claude/state/current-agent.txt` (drives the statusline + dashboard kanban badges)
-- `Stop` hook -> append session summary to `.claude/ledger.jsonl` with outcome `in-progress`
+- `Stop` hook -> append session summary to `.claude/ledger.jsonl` with outcome `in-progress` and `source:"stop-hook"`, but only when a feature is in flight (`.claude/state/current-feature.txt` non-empty)
 
 ### Active (the commands, in the order you'll usually run them)
 
@@ -319,7 +328,7 @@ the corresponding `_spec.rb` / `_test.go` / `.test.ts`.
 4. If not, hook outputs a structured JSON reminder that gets injected into
    Claude's next-turn context (`hookSpecificOutput.additionalContext`) AND
    surfaced as a `systemMessage` so the user sees it too
-5. Per-session dedupe via `.claude/state/test-parity-warned-YYYYMMDD.txt`
+5. Per (file, day) dedupe via `.claude/state/test-parity-warned-YYYYMMDD.txt`
    -- one warning per (file, day), no spam
 
 **Languages covered out of the box**
@@ -404,10 +413,23 @@ One line of `.claude/ledger.jsonl` =
   "files":   3,
   "tokens":  18000,
   "tools":   { "Read": 12, "Write": 2, "Edit": 4, "Bash": 3 },
+  "source":  "command",
   "pr":      "https://github.com/...",
   "commit":  "a1b2c3d"
 }
 ```
+
+The optional `"source"` field is `"stop-hook"` (written automatically by the
+`Stop` hook -- low-trust / supplementary) or `"command"` (written by a
+`/yang-toolkit:*` command -- authoritative). An absent `source` is treated as
+`"command"` (back-compat). **Consumer dedupe rule:** dashboard / week / today
+EXCLUDE `source:"stop-hook"` entries when computing outcome counts, token sums,
+or feature kanban state -- they use stop-hook entries ONLY as a "last active" /
+recency signal, never double-counting stats.
+
+`tokens` of `0` means UNKNOWN (the `Stop` hook can't get a portable token
+count), not zero tokens -- UIs render it as `-` (e.g. the statusline shows
+`-t` instead of `0t`). `files` of `0` stays a numeric `0`.
 
 `outcome` and `phase` are closed sets. `agent` is intentionally **open** --
 record whatever ran (Claude main thread, built-in subagent, plugin agent, or
@@ -432,10 +454,12 @@ claude --plugin-dir ./plugins/yang-toolkit
 
 ## Status
 
-`v0.5.0` -- functional. Commands, skills, hooks, statusline, and the
+`v0.6.0` -- functional. Commands, skills, hooks, statusline, and the
 `execute-plan-team` workflow are all implemented and in personal use
 (no warranty -- see the note at the top). Recent additions:
 
+- `v0.6.0` -- ledger `source` field (stop-hook vs command), UserPromptSubmit
+  agent-pointer reset, candidate-noise gate, four skills implemented.
 - `v0.5.0` -- `workflow` orchestration mode for `/execute-plan`
   (deterministic parallel fan-out via the built-in `Workflow` tool)
 - `v0.4.x` -- plan-first flow (`/plan-feature` + `/execute-plan`),

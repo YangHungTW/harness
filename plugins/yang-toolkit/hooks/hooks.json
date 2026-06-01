@@ -38,6 +38,19 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "_comment": "Reset current-agent to 'main' at the start of each user turn, so statusline/dashboard/Stop don't show a stale subagent name. SubagentStop overwrites it within the turn if a subagent runs.",
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/reset-current-agent.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "matcher": ".*",

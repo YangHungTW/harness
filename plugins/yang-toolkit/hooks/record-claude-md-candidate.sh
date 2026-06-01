@@ -90,6 +90,7 @@ SIZE_THRESHOLD=4     # source files inside the folder (excluding nested vendored
 
 score_num=0
 signals=""
+size_fired=0   # set when the "size>=THRESHOLD" substantive signal fires
 
 add_signal() {
   # $1 = weight, $2 = signal label
@@ -114,6 +115,7 @@ fi
 [ -z "$file_count" ] && file_count=0
 if [ "$file_count" -ge "$SIZE_THRESHOLD" ]; then
   add_signal "$W_SIZE" "size>=${SIZE_THRESHOLD}"
+  size_fired=1
 fi
 
 # --- this edit itself counts as edit-frequency evidence ---
@@ -185,6 +187,17 @@ while [ -n "$walk" ] && [ "$walk" != "." ]; do
   walk="$parent"
 done
 [ "$covered" = "0" ] && add_signal "$W_ANCESTOR_SCOPE" "not-in-ancestor"
+
+# ----- 2.5 Substantive-signal gate. -----
+# edit-touch + depth>=2 + not-in-ancestor fire on nearly EVERY nested edit, so
+# their numeric sum alone clears the 0.30 floor and floods the candidate list.
+# Require at least ONE substantive signal -- either the folder is sizable
+# (size>=THRESHOLD) or it shows independent recent activity (recent-activity).
+# If neither fired, this is just incidental nesting noise: drop silently
+# without rewriting or appending.
+if [ "$size_fired" = "0" ] && [ "$recent" != "1" ]; then
+  exit 0
+fi
 
 # ----- 3. Compute score (0..1, 3 decimals) and append. -----
 # Use awk for portable fixed-point division (no bc dependency).

@@ -51,4 +51,10 @@ if [ "$files" = "0" ] && [ -r "$log_file" ] && command -v jq >/dev/null 2>&1; th
   [ -n "$f" ] && files="$f"
 fi
 
+# tokens=0 (or empty/unknown) means UNKNOWN, not zero. Render "-" instead of "0".
+# files stays numeric ("0f" is fine).
+if [ -z "$tokens" ] || [ "$tokens" = "0" ]; then
+  tokens="-"
+fi
+
 printf '[harness] %s . %s . %sf . %st\n' "$agent" "$phase" "$files" "$tokens"
