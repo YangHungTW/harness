@@ -154,10 +154,14 @@ On `accept`:
 1. Use the `Write` tool to write the draft to
    `${CLAUDE_PROJECT_DIR}/${target_dir}/CLAUDE.md`.
 2. Update the candidate record's `status` from `"pending"` to `"created"` in
-   `<HARNESS_ROOT>/.claude/state/claude-md-candidates.jsonl`. Preserve
-   all other fields. (Re-write the file with the updated line.)
-3. Append a record to `<HARNESS_ROOT>/.claude/ledger.jsonl` using the
-   harness ledger schema. Use this exact shape:
+   `<HARNESS_ROOT>/.claude/state/claude-md-candidates.jsonl`. Preserve all other
+   fields: Read the file, change the one line in memory, and Write the whole
+   file back with the **Write** tool. Do not use `sed` / `echo >` redirection.
+3. Append a record to `<HARNESS_ROOT>/.claude/ledger.jsonl` **via Read+Write,
+   never shell redirection**: Read the current file (treat missing as empty),
+   concatenate your one-line compact JSON plus a trailing `\n`, and Write the
+   whole file back with the **Write** tool. Do NOT use `echo >>`, `>`, `tee`, or
+   `cd <dir> && …`. Use the harness ledger schema, this exact shape:
    ```
    {
      "ts":      <ISO8601 now, UTC>,

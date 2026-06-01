@@ -191,8 +191,9 @@ opt-in.
    - `status: executing`
    - `started_at: <ISO8601 UTC now>`
    - `executor: <session id if known, else 'main'>`
-2. Write `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt` <-
-   bare slug.
+2. Write the bare slug to
+   `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt` with the **Write**
+   tool (it creates parent dirs). Do not `echo >` / `cd` -- use the Write tool.
 
 ## Step 5 -- decide orchestration and delegate
 
@@ -312,7 +313,10 @@ arrives, proceed to Step 7's workflow branch.
    - `status: done` or `status: failed` (NOT for abandoned)
    - `finished_at: <ISO8601 UTC now>`
 
-3. **Append `## Execution Log` section** (extend if re-run). Include:
+3. **Append `## Execution Log` section** to the plan file (extend if re-run).
+   Use the **Edit** tool to splice the section into the plan markdown (or
+   Read → modify → Write the whole file). Never shell-redirect into the plan.
+   Include:
    - run number (1 if first)
    - `started_at`, `finished_at`, duration
    - outcome
@@ -325,7 +329,12 @@ arrives, proceed to Step 7's workflow branch.
    - whether any Files Touched scope-guard violations were observed
 
 4. **Append ONE record** to `<HARNESS_ROOT>/.claude/ledger.jsonl`
-   matching the feature-dev-tracked schema plus these extras:
+   **via Read+Write, never shell redirection**: Read the current file (treat
+   missing as empty), concatenate your one-line compact JSON plus a trailing
+   `\n`, and Write the whole file back with the **Write** tool. Do NOT use
+   `echo >>`, `>`, `tee`, or `cd <dir> && …` -- each distinct shell string
+   re-triggers a permission prompt; the Write tool does not. The record matches
+   the feature-dev-tracked schema plus these extras:
    ```
    "plan_path":      ".claude/plans/<slug>.md",
    "goal_turns":     <int or null>,                 // null in workflow mode (no /goal loop)
@@ -345,7 +354,9 @@ arrives, proceed to Step 7's workflow branch.
    skill is available, invoke it so learnings get absorbed. If
    unavailable, skip and mention in the final report.
 
-6. **Clear** `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt`.
+6. **Clear** `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt` by
+   writing an empty string to it with the **Write** tool (do NOT `rm` /
+   `truncate` / `> file`).
 
 7. **Report** to the user:
    - plan path and final status

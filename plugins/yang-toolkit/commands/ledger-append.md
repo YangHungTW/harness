@@ -57,9 +57,15 @@ controlled list, push back: list the allowed values and ask again.
      "commit": null
    }
    ```
-2. Append to `<HARNESS_ROOT>/.claude/ledger.jsonl` (create the file +
-   directory if missing). One line, terminated by `\n`.
-3. Echo the exact line you wrote back to the user.
+2. Append the record **via Read+Write, never shell redirection**: Read the
+   current `<HARNESS_ROOT>/.claude/ledger.jsonl` (treat a missing file as
+   empty), concatenate your one-line compact JSON plus a trailing `\n` onto the
+   existing contents, and Write the whole file back with the **Write** tool (it
+   creates the parent directory). Do NOT use `echo >>`, `>`, `tee`, or
+   `cd <dir> && …` -- each distinct shell string re-triggers a permission
+   prompt; the Write tool does not.
+3. Print the exact line you wrote back to the user (in your reply text -- do not
+   `echo` it via Bash).
 
 ## Confirm
 If the user types `--dry-run` in `$ARGUMENTS`, print the proposed record but

@@ -41,8 +41,10 @@ docs belong with the feature branch).
 ### Step 1 -- prepare
 - Derive a kebab-case `slug` from the feature description.
 - Compute `today = YYYY-MM-DD` (UTC).
-- Create directory `${CLAUDE_PROJECT_DIR}/docs/decisions/{today}-{slug}/` (use
-  the `Write` tool on a placeholder if Bash mkdir isn't available; do not skip).
+- The decision directory `${CLAUDE_PROJECT_DIR}/docs/decisions/{today}-{slug}/`
+  is created implicitly when you Write the first `0X-{phase}.md` into it -- the
+  **Write** tool creates parent directories. Do NOT run `mkdir` or `cd` to make
+  it; those shell calls trigger permission prompts. Just Write the file.
 - **Set the current-feature pointer**: write the bare slug (no date prefix,
   no newline beyond a trailing `\n`) to
   `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt`. This lets
@@ -93,12 +95,17 @@ At the end of `summary`, append exactly ONE line to
   recover.
 - Never invent any other value.
 
-Append using `Write` in append mode (or `echo >>` via Bash). Each entry must
-be a single line of compact JSON, terminated by `\n`.
+**Append via Read+Write, never shell redirection.** Read the current
+`ledger.jsonl` (treat a missing file as empty), concatenate your one-line
+compact JSON record plus a trailing `\n` onto the existing contents, and Write
+the whole file back with the **Write** tool (it creates parent directories).
+Do NOT use `echo >>`, `>`, `tee`, `printf >`, or `cd <dir> && …` -- each
+distinct shell string re-triggers a permission prompt; the Write tool does not.
 
 ### Step 4 -- report and clean up
-- Clear the current-feature pointer: delete (or truncate to empty)
-  `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt`. This signals that
+- Clear the current-feature pointer: Write an empty string to
+  `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt` with the **Write**
+  tool (do NOT `rm`, `truncate`, or `> file`). This signals that
   the feature has reached `summary` and tdd-feature should NOT try to continue
   it -- starting TDD on a summarized feature requires a new slug.
 - Tell the user:

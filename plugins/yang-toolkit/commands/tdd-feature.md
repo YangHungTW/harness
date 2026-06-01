@@ -136,7 +136,9 @@ For each test case in the plan, in order:
      still pass after.
    - If nothing to refactor, say so and move on.
 
-Each cycle appends one line to `03-tdd-cycles.md`. Schema (markdown table):
+Each cycle adds one row to `03-tdd-cycles.md`. Use the **Edit** tool to append
+the row (or Read → add row → Write the whole file); never shell-redirect into
+the file. Schema (markdown table):
 
 ```
 | # | test name                             | red ts              | green ts            | refactored?                    |
@@ -164,7 +166,12 @@ if no, proceed to Step 3.
 
 ### Step 4 -- ledger append
 
-Append ONE line to `<HARNESS_ROOT>/.claude/ledger.jsonl`:
+Append ONE line to `<HARNESS_ROOT>/.claude/ledger.jsonl` **via Read+Write, never
+shell redirection**: Read the current file (treat missing as empty), concatenate
+your one-line compact JSON plus a trailing `\n`, and Write the whole file back
+with the **Write** tool (it creates parent dirs). Do NOT use `echo >>`, `>`,
+`tee`, or `cd <dir> && …` -- each distinct shell string re-triggers a permission
+prompt; the Write tool does not. Schema:
 
 ```
 {
@@ -188,8 +195,8 @@ the controlled set `in-progress | merged | abandoned | failed`.
 
 ### Step 5 -- clean up and report
 
-- Clear `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt` (delete or
-  truncate to empty).
+- Clear `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt` by writing an
+  empty string to it with the **Write** tool (do NOT `rm` / `truncate` / `> file`).
 - Tell the user:
   - decision dir path
   - cycle count
