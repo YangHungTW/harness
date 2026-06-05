@@ -9,7 +9,8 @@ a thin wrapper around the upstream `/feature-dev` flow that adds two persistence
 guarantees:
 
 1. **Per-phase decision docs** under
-   `${CLAUDE_PROJECT_DIR}/docs/decisions/{YYYY-MM-DD}-{slug}/0X-{phase}.md`
+   `${CLAUDE_PROJECT_DIR}/docs/decisions/{YYYY-MM-DD}-{slug}/0X-{phase}-{TS}.md`
+   where `{TS}` is a compact UTC timestamp (see "Timestamps" below).
 2. **One ledger record** appended to
    `<HARNESS_ROOT>/.claude/ledger.jsonl` at the end (controlled-vocabulary
    schema -- see below).
@@ -31,6 +32,14 @@ Use `<HARNESS_ROOT>` ONLY for `<HARNESS_ROOT>/.claude/ledger.jsonl`. Keep
 everything else -- `docs/decisions/...` and
 `.claude/state/current-feature.txt` -- on `${CLAUDE_PROJECT_DIR}` (decision
 docs belong with the feature branch).
+
+## Timestamps
+Two granularities, both UTC. Compute each with a single `date` call when you need
+it (do NOT hardcode or reuse a stale value across phases):
+- **Filename timestamp `{TS}`** -- compact basic-ISO, filesystem-safe (no colons),
+  lexically sortable: `date -u +%Y%m%dT%H%M%SZ` -> e.g. `20260605T031421Z`.
+- **Content timestamp** -- full ISO 8601 UTC for inside the doc body:
+  `date -u +%Y-%m-%dT%H:%M:%SZ` -> e.g. `2026-06-05T03:14:21Z`.
 
 ## Inputs
 - `$ARGUMENTS` -- a feature description in natural language. If empty, ask the
@@ -63,9 +72,14 @@ Run the standard feature-dev phases in order:
   5. summary  (always last)
 
 After each phase, **before** moving to the next:
-- Write `0X-{phase}.md` into the decision directory (X = phase index, zero-padded).
-- The file MUST contain: title, ISO8601 timestamp, the phase's deliverable, and
-  any open questions surfaced.
+- Compute a fresh `{TS}` (`date -u +%Y%m%dT%H%M%SZ`) and a content timestamp
+  (`date -u +%Y-%m-%dT%H:%M:%SZ`) at the moment the phase completes.
+- Write `0X-{phase}-{TS}.md` into the decision directory (X = phase index,
+  zero-padded; `{TS}` = the compact filename timestamp). The zero-padded index
+  keeps phases ordered; the timestamp records when each was written.
+- The file MUST contain, as the first lines of the body: a `# <title>` heading
+  and a `Generated: <content timestamp>` line, followed by the phase's
+  deliverable and any open questions surfaced.
 - Use the `Write` tool. Do not silently skip a phase.
 
 ### Step 3 -- ledger append (only on `summary` phase)

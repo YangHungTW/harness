@@ -125,6 +125,7 @@ file or line.
 
    ```
    # Weekly Report — <YYYY-WW>
+   _Generated: <now UTC, ISO 8601>._
    _Window: <cutoff UTC> .. <now UTC>. Stats from authoritative
    (command) ledger entries only; stop-hook entries used for recency only._
 
@@ -148,8 +149,12 @@ file or line.
    Omit the "No activity captured" section if that list is empty.
 
 7. **Optional write.** If invoked with `--write`, also save the same markdown to
-   `~/notes/weekly/<YYYY-WW>.md` (create the `~/notes/weekly/` directory if
-   needed), using ISO week numbering for `<YYYY-WW>`. Print the saved path.
+   `~/notes/weekly/<YYYY-WW>-<TS>.md` (create the `~/notes/weekly/` directory if
+   needed), using ISO week numbering for `<YYYY-WW>` and a compact UTC timestamp
+   for `<TS>` (`date -u +%Y%m%dT%H%M%SZ` -> e.g. `20260605T031421Z`). The week
+   number keeps files grouped; the `<TS>` suffix makes each regeneration a
+   distinct, sortable snapshot instead of overwriting the week's file. Print the
+   saved path.
 
 ## Notes
 - Be resilient: a malformed JSONL line is skipped with a warning, never aborts.

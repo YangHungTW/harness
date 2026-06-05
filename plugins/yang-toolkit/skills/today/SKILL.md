@@ -100,6 +100,7 @@ Output ONE markdown digest:
 
 ```
 # Today -- <local date>
+_Generated: <now UTC, ISO 8601>._
 
 ## Per client
 ### <client> (<repo name>)
@@ -120,6 +121,16 @@ Output ONE markdown digest:
 Always end with the **Skipped sources** line/section whenever ANY source was
 unconfigured, missing, unreachable, or unauthenticated, so it's clear the digest
 is partial.
+
+### 6. Optional write
+By default the digest is printed to the chat only -- no file is written. If
+invoked with `--write`, ALSO save the exact same markdown to
+`~/notes/daily/today-<YYYY-MM-DD>-<TS>.md` (create `~/notes/daily/` if needed),
+where `<TS>` is a compact UTC timestamp (`date -u +%Y%m%dT%H%M%SZ` -> e.g.
+`20260605T031421Z`). The date groups files by day; the `<TS>` suffix keeps
+multiple briefs on the same day distinct and lexically sortable instead of
+overwriting. Print the saved path. Use the **Write** tool (it creates parent
+directories); never `>`/`tee`/`mkdir`.
 
 ## Notes
 - Stale or partial data is acceptable and expected; flag it, don't fail on it.

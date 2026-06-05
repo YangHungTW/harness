@@ -108,6 +108,156 @@
     color: var(--muted);
   }
 
+  /* ---------- CONTROLS (interactive filter bar) ---------- */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .controls input[type="search"] {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--text);
+    font: inherit;
+    padding: 6px 10px;
+    min-width: 220px;
+    outline: none;
+  }
+  .controls input[type="search"]:focus { border-color: var(--accent); }
+  .filter-outcomes { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ofilter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    font: inherit;
+    font-size: 11px;
+    padding: 4px 10px;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.12s ease, border-color 0.12s ease;
+  }
+  .ofilter::before {
+    content: "";
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    background: var(--dot, var(--muted));
+  }
+  .ofilter.on { opacity: 1; color: var(--text); }
+  .ofilter[data-outcome="merged"]      { --dot: var(--c-merged); }
+  .ofilter[data-outcome="in-progress"] { --dot: var(--c-in-progress); }
+  .ofilter[data-outcome="abandoned"]   { --dot: var(--c-abandoned); }
+  .ofilter[data-outcome="failed"]      { --dot: var(--c-failed); }
+  .focus-note {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .focus-note[hidden] { display: none; }
+  .focus-note b { color: var(--accent); }
+  .focus-note button {
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--muted);
+    font: inherit;
+    font-size: 11px;
+    padding: 3px 8px;
+    cursor: pointer;
+  }
+  .focus-note button:hover { color: var(--text); border-color: var(--accent); }
+  /* clickable affordance for focusable elements */
+  .block, .card { cursor: pointer; }
+
+  /* ---------- GIT CONTEXT + DIFF VIEWER ---------- */
+  .hdr-title .branch {
+    font-size: 12px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 1px 8px;
+  }
+  .hdr-title .branch:empty { display: none; }
+  .hdr-title .repo-dirty {
+    font-size: 11px;
+    color: var(--c-in-progress);
+  }
+  .hdr-title .repo-dirty[hidden] { display: none; }
+  .gitbar {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    color: var(--muted);
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+  .gitbar .b { color: var(--text); }
+  .change-h {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin: 14px 0 8px;
+  }
+  .change-h[hidden] { display: none; }
+  .filerow, .commitrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--panel-2);
+    cursor: pointer;
+    margin-bottom: 4px;
+  }
+  .filerow:hover, .commitrow:hover { border-color: var(--accent); }
+  .filerow .st { width: 14px; text-align: center; font-weight: bold; }
+  .st-M { color: var(--c-in-progress); }
+  .st-A { color: var(--c-merged); }
+  .st-D { color: var(--c-failed); }
+  .st-R { color: var(--accent); }
+  .st-Q { color: var(--muted); }
+  .filerow .fn, .commitrow .subj { flex: 1; word-break: break-all; }
+  .filerow .tag {
+    font-size: 10px; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 3px; padding: 0 5px;
+  }
+  .filerow .stat .plus { color: var(--c-merged); }
+  .filerow .stat .minus { color: var(--c-failed); }
+  .commitrow .sha { color: var(--accent); }
+  .commitrow .who { color: var(--muted); font-size: 11px; }
+  .commitrow.dim { opacity: 0.3; }
+  .commit-files { margin: 2px 0 10px 14px; }
+  .diff {
+    margin: 0 0 8px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    background: #0a0c10;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: pre;
+  }
+  .diff .ln { display: block; }
+  .diff .add  { color: var(--c-merged); background: rgba(74,222,128,0.07); }
+  .diff .del  { color: var(--c-failed); background: rgba(248,113,113,0.07); }
+  .diff .hunk { color: var(--accent); }
+  .diff .ctx  { color: var(--muted); }
+  .diff .trunc { color: var(--c-in-progress); font-style: italic; }
+  .collapsed { display: none; }
+  .empty-note { color: var(--muted); font-style: italic; }
+
   /* ---------- SECTION SHELL ---------- */
   section.panel {
     background: var(--panel);
@@ -357,6 +507,47 @@
 ]
 </script>
 
+<!--
+  Git side-channel. The dashboard skill REPLACES the contents of this block with
+  a JSON OBJECT describing the working tree + recent commits collected at render
+  time (read-only). Shape:
+  {
+    "unavailable": false,            // true if not a git repo / git failed
+    "repo": string, "branch": string, "head": string,
+    "dirty": boolean,
+    "working": [ { "file", "status":"M|A|D|R|?", "staged":bool, "patch":string } ],
+    "commits": [ { "short","sha","author","date","subject",
+                   "files":[ { "file","added":int,"removed":int,"patch":string } ] } ]
+  }
+  Patches are unified-diff text; the page colorizes them client-side. The mock
+  below is just so this file previews when opened directly.
+-->
+<script type="application/json" id="git-data">
+{
+  "unavailable": false,
+  "repo": "harness",
+  "branch": "feature/dashboard-git",
+  "head": "1d510cd",
+  "dirty": true,
+  "working": [
+    {"file":"plugins/yang-toolkit/skills/dashboard/templates/dashboard.html","status":"M","staged":false,
+     "patch":"@@ -458,6 +458,9 @@\n   <section class=\"panel\">\n     <h2>Feature status</h2>\n+  </section>\n+  <section class=\"panel\">\n+    <h2>Changes -- review in browser</h2>\n     <div class=\"kanban\" id=\"kanban\">"},
+    {"file":"plugins/yang-toolkit/skills/dashboard/SKILL.md","status":"M","staged":true,
+     "patch":"@@ -2,1 +2,1 @@\n-description: render an HTML artifact\n+description: render a paired HTML + markdown artifact that joins the ledger with git"}
+  ],
+  "commits": [
+    {"short":"1d510cd","sha":"1d510cd0000000000000000000000000000000a","author":"YANG","date":"__T-1__",
+     "subject":"Make command file-writes use Write/Edit, not shell redirection",
+     "files":[{"file":"README.md","added":3,"removed":1,
+       "patch":"@@ -10,3 +10,5 @@\n surrounding context line\n-old removed line\n+new added line one\n+new added line two\n unchanged trailing line"}]},
+    {"short":"a94befd","sha":"a94befd0000000000000000000000000000000b","author":"YANG","date":"__T-2__",
+     "subject":"Prefer Write tool over shell redirection for ledger/state writes",
+     "files":[{"file":"plugins/yang-toolkit/commands/feature-dev-tracked.md","added":5,"removed":0,
+       "patch":"@@ -64,0 +65,5 @@\n+## Timestamps\n+Two granularities, both UTC.\n+- filename: compact basic-ISO\n+- content: full ISO 8601\n+"}]}
+  ]
+}
+</script>
+
 <div class="wrap">
 
   <header class="hdr">
@@ -364,6 +555,8 @@
       <span class="mp">harness</span>
       <span class="sep">/</span>
       <span class="repo" id="repo-name">current-repo</span>
+      <span class="branch" id="repo-branch"></span>
+      <span class="repo-dirty" id="repo-dirty" hidden>● uncommitted</span>
     </div>
     <div class="hdr-stats">
       <div class="stat"><div class="v" id="stat-updated">--</div><div class="k">Last update</div></div>
@@ -371,6 +564,20 @@
       <div class="stat"><div class="v" id="stat-tokens">--</div><div class="k">Tokens this wk</div></div>
     </div>
   </header>
+
+  <div class="controls" id="controls">
+    <input type="search" id="filter-search" placeholder="filter feature / agent…" autocomplete="off" />
+    <div class="filter-outcomes" id="filter-outcomes">
+      <button type="button" class="ofilter on" data-outcome="merged">merged</button>
+      <button type="button" class="ofilter on" data-outcome="in-progress">in-progress</button>
+      <button type="button" class="ofilter on" data-outcome="abandoned">abandoned</button>
+      <button type="button" class="ofilter on" data-outcome="failed">failed</button>
+    </div>
+    <span class="focus-note" id="focus-note" hidden>
+      focused: <b id="focus-feat"></b>
+      <button type="button" id="focus-clear">clear ✕</button>
+    </span>
+  </div>
 
   <section class="panel">
     <h2>Timeline -- last 14 days</h2>
@@ -394,6 +601,15 @@
   </section>
 
   <section class="panel">
+    <h2>Changes -- review in browser</h2>
+    <div class="gitbar" id="gitbar"></div>
+    <div class="change-h" id="working-h" hidden>Working tree (uncommitted)</div>
+    <div id="git-working"></div>
+    <div class="change-h" id="commits-h" hidden>Recent commits -- last 14 days</div>
+    <div id="git-commits"></div>
+  </section>
+
+  <section class="panel">
     <h2>Stats</h2>
     <div class="footstats">
       <div class="sub">
@@ -407,6 +623,10 @@
       </div>
     </div>
   </section>
+
+  <footer class="genfoot" style="margin-top:18px;text-align:right;font-size:11px;opacity:.5">
+    Generated <span id="generated-at">__GENERATED_AT__</span>
+  </footer>
 
 </div>
 
@@ -529,6 +749,7 @@
           + (e.pr ? "\nPR:     " + e.pr : "")
           + (e.commit ? "\ncommit: " + e.commit : "");
         b.setAttribute("data-tip", tip);
+        b.setAttribute("data-feature", e.feature);
         blocks.appendChild(b);
       });
       cell.appendChild(blocks);
@@ -578,6 +799,7 @@
       var totals = totalsByFeature[feat] || { tokens: 0, files: 0 };
       var card = document.createElement("div");
       card.className = "card";
+      card.setAttribute("data-feature", feat);
 
       var badge = document.createElement("span");
       var agentClass = (rec.agent || "unknown").replace(/[^a-z0-9\-]/gi, "");
@@ -683,14 +905,255 @@
     });
   }
 
-  // ---------- 8. Boot ----------
+  // ---------- 7b. Git side-channel ----------
+  function mockResolveTs(ts) {
+    var m = /^__T-(\d+)__$/.exec(ts || "");
+    if (!m) return ts;
+    return new Date(Date.now() - parseInt(m[1], 10) * 86400000).toISOString();
+  }
+
+  function loadGit() {
+    var el = document.getElementById("git-data");
+    if (!el) return { unavailable: true };
+    var g;
+    try { g = JSON.parse(el.textContent); } catch (e) { return { unavailable: true }; }
+    if (!g || typeof g !== "object") return { unavailable: true };
+    (g.commits || []).forEach(function (c) { c.date = mockResolveTs(c.date); });
+    return g;
+  }
+
+  // Unified-diff text -> colorized, escaped HTML (one <span> per line).
+  function renderDiffHtml(patch) {
+    if (!patch) return '<span class="ln ctx">(no textual diff -- binary or empty)</span>';
+    return patch.split("\n").map(function (line) {
+      var cls = "ctx";
+      if (/^\+\+\+ |^--- /.test(line)) cls = "ctx";
+      else if (line.charAt(0) === "+") cls = "add";
+      else if (line.charAt(0) === "-") cls = "del";
+      else if (line.indexOf("@@") === 0) cls = "hunk";
+      else if (/^\\ No newline/.test(line) || /diff truncated/i.test(line)) cls = "trunc";
+      return '<span class="ln ' + cls + '">' + escapeHtml(line.length ? line : " ") + "</span>";
+    }).join("");
+  }
+
+  function statusClass(st) {
+    st = (st || "?").charAt(0).toUpperCase();
+    return ({ M: "st-M", A: "st-A", D: "st-D", R: "st-R" })[st] || "st-Q";
+  }
+
+  // feature -> [commit SHAs recorded in ledger], for focus linking.
+  function featureShaMap(records) {
+    var map = {};
+    records.forEach(function (r) {
+      if (!r.commit) return;
+      (map[r.feature] = map[r.feature] || []).push(String(r.commit));
+    });
+    return map;
+  }
+  function commitMatchesFeature(commit, shas) {
+    if (!shas || !shas.length) return false;
+    var full = String(commit.sha || ""), shrt = String(commit.short || "");
+    return shas.some(function (s) {
+      s = String(s);
+      return full.indexOf(s) === 0 || shrt.indexOf(s) === 0 || (shrt && s.indexOf(shrt) === 0);
+    });
+  }
+
+  function renderGitHeader(git) {
+    var br = document.getElementById("repo-branch");
+    var dirty = document.getElementById("repo-dirty");
+    if (br) br.textContent = (git && !git.unavailable && git.branch) ? git.branch : "";
+    if (dirty) dirty.hidden = !(git && git.dirty);
+  }
+
+  // focusFeature: when set, commits NOT linked to that feature are dimmed.
+  function renderGit(git, records, focusFeature) {
+    var bar = document.getElementById("gitbar");
+    var workH = document.getElementById("working-h");
+    var work = document.getElementById("git-working");
+    var commH = document.getElementById("commits-h");
+    var comm = document.getElementById("git-commits");
+    if (!bar || !work || !comm) return;
+    bar.innerHTML = ""; work.innerHTML = ""; comm.innerHTML = "";
+
+    if (!git || git.unavailable) {
+      bar.innerHTML = '<span class="empty-note">no git data (not a repo, or git unavailable at render time)</span>';
+      if (workH) workH.hidden = true;
+      if (commH) commH.hidden = true;
+      return;
+    }
+
+    var working = git.working || [];
+    var commits = git.commits || [];
+    bar.innerHTML =
+      'branch <span class="b">' + escapeHtml(git.branch || "-") + '</span>'
+      + ' &middot; HEAD <span class="b">' + escapeHtml(git.head || "-") + '</span>'
+      + ' &middot; <span class="b">' + working.length + '</span> uncommitted'
+      + ' &middot; <span class="b">' + commits.length + '</span> commits (14d)';
+
+    // Working tree
+    if (workH) workH.hidden = working.length === 0;
+    if (!working.length) {
+      work.innerHTML = '<div class="empty-note">working tree clean -- nothing uncommitted.</div>';
+    } else {
+      working.forEach(function (f, i) {
+        var row = document.createElement("div");
+        row.className = "filerow";
+        row.setAttribute("data-toggle", "w" + i);
+        row.innerHTML =
+          '<span class="st ' + statusClass(f.status) + '">' + escapeHtml((f.status || "?").charAt(0)) + '</span>'
+          + '<span class="fn">' + escapeHtml(f.file || "(unknown)") + '</span>'
+          + '<span class="tag">' + (f.staged ? "staged" : "unstaged") + '</span>';
+        var pre = document.createElement("pre");
+        pre.className = "diff collapsed";
+        pre.id = "w" + i;
+        pre.innerHTML = renderDiffHtml(f.patch);
+        work.appendChild(row);
+        work.appendChild(pre);
+      });
+    }
+
+    // Commits
+    var shaMap = featureShaMap(records);
+    var focusShas = focusFeature ? shaMap[focusFeature] : null;
+    if (commH) commH.hidden = commits.length === 0;
+    if (!commits.length) {
+      comm.innerHTML = '<div class="empty-note">no commits in the last 14 days.</div>';
+    } else {
+      commits.forEach(function (c, i) {
+        var linked = focusFeature ? commitMatchesFeature(c, focusShas) : true;
+        var row = document.createElement("div");
+        row.className = "commitrow" + (linked ? "" : " dim");
+        row.setAttribute("data-toggle", "c" + i);
+        var when = c.date ? new Date(c.date) : null;
+        row.innerHTML =
+          '<span class="sha">' + escapeHtml(c.short || "") + '</span>'
+          + '<span class="subj">' + escapeHtml(c.subject || "") + '</span>'
+          + '<span class="who">' + escapeHtml(c.author || "") + (when ? " &middot; " + shortDate(when) : "") + '</span>';
+        var box = document.createElement("div");
+        box.className = "commit-files collapsed";
+        box.id = "c" + i;
+        (c.files || []).forEach(function (f) {
+          var fhdr = document.createElement("div");
+          fhdr.className = "filerow";
+          fhdr.style.cursor = "default";
+          fhdr.innerHTML =
+            '<span class="fn">' + escapeHtml(f.file || "") + '</span>'
+            + '<span class="stat"><span class="plus">+' + (f.added || 0) + '</span> '
+            + '<span class="minus">-' + (f.removed || 0) + '</span></span>';
+          var pre = document.createElement("pre");
+          pre.className = "diff";
+          pre.innerHTML = renderDiffHtml(f.patch);
+          box.appendChild(fhdr);
+          box.appendChild(pre);
+        });
+        if (!(c.files || []).length) {
+          box.innerHTML = '<div class="empty-note">no file-level diff captured.</div>';
+        }
+        comm.appendChild(row);
+        comm.appendChild(box);
+      });
+    }
+  }
+
+  // ---------- 8. Boot + interactivity ----------
+  // The dashboard is a self-contained client-side app: it renders the embedded
+  // ledger and re-renders every section against the current filter state. It is
+  // NOT a static markdown-to-HTML conversion -- the markdown companion is the
+  // static review view; this page is the interactive one.
   document.addEventListener("DOMContentLoaded", function () {
-    var records = loadLedger();
-    renderHeader(records);
-    renderTimeline(records);
-    renderKanban(records);
-    renderAgentBar(records);
-    renderToolbar(records);
+    var ALL = loadLedger();
+    var GIT = loadGit();
+    var OUTCOMES = ["merged", "in-progress", "abandoned", "failed"];
+    var state = { outcomes: {}, query: "", feature: null };
+    OUTCOMES.forEach(function (o) { state.outcomes[o] = true; });
+
+    // Compute the records that pass the current filters.
+    function visible() {
+      var q = state.query.trim().toLowerCase();
+      return ALL.filter(function (r) {
+        var oc = r.outcome || "in-progress";
+        if (state.outcomes[oc] === false) return false;
+        if (state.feature && r.feature !== state.feature) return false;
+        if (q) {
+          var hay = ((r.feature || "") + " " + (r.agent || "")).toLowerCase();
+          if (hay.indexOf(q) === -1) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderAll() {
+      var recs = visible();
+      renderHeader(recs);
+      renderTimeline(recs);
+      renderKanban(recs);
+      renderAgentBar(recs);
+      renderToolbar(recs);
+    }
+
+    // Outcome toggles -- click a chip to show/hide that outcome.
+    var ofBox = document.getElementById("filter-outcomes");
+    if (ofBox) {
+      ofBox.addEventListener("click", function (ev) {
+        var btn = ev.target.closest && ev.target.closest(".ofilter");
+        if (!btn) return;
+        var oc = btn.getAttribute("data-outcome");
+        state.outcomes[oc] = !state.outcomes[oc];
+        btn.classList.toggle("on", state.outcomes[oc]);
+        renderAll();
+      });
+    }
+
+    // Free-text filter on feature / agent.
+    var search = document.getElementById("filter-search");
+    if (search) {
+      search.addEventListener("input", function () {
+        state.query = search.value || "";
+        renderAll();
+      });
+    }
+
+    // Click a timeline block or kanban card to focus that feature; click the
+    // same one again (or "clear") to unfocus.
+    var focusNote = document.getElementById("focus-note");
+    var focusFeat = document.getElementById("focus-feat");
+    function setFocus(feat) {
+      state.feature = feat || null;
+      if (focusNote) {
+        if (state.feature) { focusFeat.textContent = state.feature; focusNote.hidden = false; }
+        else { focusNote.hidden = true; }
+      }
+      renderAll();
+      renderGit(GIT, ALL, state.feature);   // update which commits are linked
+    }
+    document.addEventListener("click", function (ev) {
+      if (!ev.target.closest) return;
+      if (ev.target.closest("a")) return;            // let PR links work normally
+      var node = ev.target.closest("[data-feature]");
+      if (!node) return;
+      var feat = node.getAttribute("data-feature");
+      setFocus(state.feature === feat ? null : feat);
+    });
+    var clearBtn = document.getElementById("focus-clear");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        setFocus(null);
+      });
+    }
+
+    // Expand/collapse a diff or a commit's file list.
+    document.addEventListener("click", function (ev) {
+      var t = ev.target.closest && ev.target.closest("[data-toggle]");
+      if (!t) return;
+      var box = document.getElementById(t.getAttribute("data-toggle"));
+      if (box) box.classList.toggle("collapsed");
+    });
+
+    renderAll();
+    renderGitHeader(GIT);
+    renderGit(GIT, ALL, state.feature);
   });
 })();
 </script>
