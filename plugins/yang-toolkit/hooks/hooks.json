@@ -72,6 +72,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "_comment": "Completion signal: play a short sound (and optional desktop notification) so you can tell which of several parallel sessions just finished. Best-effort, never blocks. Opt out with HARNESS_DISABLE_NOTIFY=1; override the sound with HARNESS_NOTIFY_SOUND=/path; enable a desktop notification with HARNESS_NOTIFY_DESKTOP=1.",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/notify-complete.sh",
+            "timeout": 8
+          }
+        ]
       }
     ]
   }
