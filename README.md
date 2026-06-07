@@ -24,7 +24,10 @@ hook and show up in the statusline / dashboard automatically.
 **Skills** (`plugins/yang-toolkit/skills/`)
 - `today` -- daily digest across GitHub / Jira / Slack / per-repo ledgers
 - `week` -- cross-repo weekly report from `~/.config/harness/repos.json`
-- `dashboard` -- render ledger to HTML (timeline + kanban + stats)
+- `dashboard` -- render the ledger + live git into a paired, timestamped artifact:
+  an interactive HTML (timeline + kanban + stats, with outcome filters,
+  feature-focus, and an in-browser git diff reviewer) plus a flat markdown view
+  for review/AI
 - `curate-claude-md` -- audit + (re)generate nested `CLAUDE.md`
 
 **Commands** (`plugins/yang-toolkit/commands/`)
@@ -190,7 +193,7 @@ TDD discipline matters:
 
 | Command | What it does |
 | ------- | ------------ |
-| `/yang-toolkit:dashboard` | Render `.claude/ledger.jsonl` to an HTML artifact (timeline + kanban + stats). |
+| `/yang-toolkit:dashboard` | Render `.claude/ledger.jsonl` + live git into a timestamped pair: interactive `dashboard-{TS}.html` (timeline + kanban + stats + filters + feature-focus + in-browser git diff review) and a flat `dashboard-{TS}.md`. |
 | `/yang-toolkit:week` | Cross-repo weekly report from `~/.config/harness/repos.json`. |
 | `/yang-toolkit:today` | Daily digest aggregating GitHub / external surfaces + every tracked repo's recent ledger entries. |
 | `/yang-toolkit:ledger-append` | Manually backfill a ledger entry you forgot to capture. |
@@ -284,7 +287,7 @@ $ /yang-toolkit:execute-plan
 單任務 (per-feature)    /feature-dev-tracked -> docs/decisions/{YYYY-MM-DD}-{slug}/
                         |
                         v
-跨任務 (per-repo)       .claude/ledger.jsonl -> /dashboard (HTML)
+跨任務 (per-repo)       .claude/ledger.jsonl + git -> /dashboard (HTML + MD pair)
                         |
                         v
 跨專案 (cross-repo)     ~/.config/harness/repos.json -> /week, /today
@@ -383,7 +386,9 @@ client-repo/
 |   |     |-- current-feature.txt              # in-flight feature slug (set by feature-dev-tracked / execute-plan, read by tdd-feature)  [per-worktree]
 |   |     |-- claude-md-candidates.jsonl       # pending CLAUDE.md gap proposals  [MAIN-worktree-shared]
 |   |     `-- test-parity-warned-YYYYMMDD.txt  # files we've already nudged about today  [per-worktree]
-|   `-- dashboard.html     # gitignore -- regenerable artifact         [per-worktree]
+|   |-- dashboard-{TS}.html # gitignore -- timestamped, interactive render    [per-worktree]
+|   |-- dashboard-{TS}.md   # gitignore -- flat review/AI render (paired by {TS}) [per-worktree]
+|   `-- plans/<slug>-{TS}.html # gitignore -- /share-plan export (the .md is durable) [MAIN-worktree-shared]
 `-- docs/decisions/        # COMMIT this -- per-feature decision trail (stays with the feature branch -- intentionally per-worktree)
 ```
 
@@ -403,6 +408,9 @@ Add to that repo's `.gitignore`:
 .claude/logs/
 .claude/state/
 .claude/dashboard.html
+.claude/dashboard-*.html
+.claude/dashboard-*.md
+.claude/plans/*.html
 ```
 
 ## Cross-repo config

@@ -204,8 +204,8 @@
   <div class="hdr-title">
     harness <span class="slash">//</span> <span class="what">usage</span>
   </div>
-  <span class="badge">yang-toolkit v0.5.0</span>
-  <span class="badge">2026-05-28</span>
+  <span class="badge">yang-toolkit v0.10.1</span>
+  <span class="badge">2026-06-07</span>
   <span class="badge" style="margin-left:auto;"><b style="color:var(--text);">EN</b> · <a href="usage.zh.html">中文</a></span>
 </header>
 
@@ -255,9 +255,21 @@
   <h2><span class="n">2.</span>Plan-first flow (new in v0.4.0)</h2>
 
   <h3>Step 1 — draft the plan</h3>
-<pre><span class="cmd-comment"># Pulls relevant past context from ledger + CLAUDE.md + decision dirs.
-# Writes .claude/plans/&lt;slug&gt;.md with auto-generated Memory References.</span>
+<pre><span class="cmd-comment"># Runs a parallel research fan-out, then writes .claude/plans/&lt;slug&gt;.md:
+#   - codebase patterns/conventions to mirror
+#   - project history: ledger + prior plans + decision dirs + CLAUDE.md
+#   - external recency research (via the deep-research skill) when it helps
+# Results become typed Memory References. Research depth is chosen
+# automatically (deep for fuzzy/broad/external/risky work, shallow for small
+# local changes) -- you do NOT pass a flag.</span>
 /yang-toolkit:plan-feature <span class="cmd-str">"Add cancellation policy UI to booking flow"</span></pre>
+
+  <p>Input can be <strong>any captured context</strong>, not just a clean
+  description: paste a terminal error, a GitHub issue URL, a meeting transcript,
+  or attach a screenshot / mockup — raw is fine, the probes mine it against your
+  codebase and history. Override the auto depth only if you disagree:
+  <code>--deep</code> forces the full treatment (external research + a
+  "plan-for-the-plan" pass); <code>--shallow</code> forces one light pass.</p>
 
   <p>Then open the produced file and edit:</p>
   <ul>
@@ -288,6 +300,16 @@
       <tr><td><code>/yang-toolkit:plan-feature --from &lt;slug&gt;</code></td><td>Replan from scratch (overwrites the file after confirmation).</td></tr>
     </tbody>
   </table>
+
+  <h3>Sharing a plan with a non-terminal reviewer</h3>
+  <p>A <code>plan.md</code> is great in a terminal but awkward to hand to someone
+  in Slack/a browser. Render it to a clean, self-contained HTML document:</p>
+<pre><span class="cmd-comment"># Writes .claude/plans/&lt;slug&gt;-&lt;TS&gt;.html -- a read-only, timestamped snapshot
+# (frontmatter -&gt; header, acceptance criteria -&gt; checkboxes). Safe to send/airdrop.</span>
+/yang-toolkit:share-plan <span class="cmd-str">&lt;slug&gt;</span></pre>
+  <p>It never touches the <code>.md</code> (the source of truth). Revise via
+  <code>plan-feature --revise</code>, then re-run <code>share-plan</code> for a
+  fresh snapshot.</p>
 
   <h3>Execute overrides</h3>
   <table>
@@ -356,7 +378,8 @@
     <tbody>
       <tr><td><code>/yang-toolkit:today</code></td><td>Daily digest aggregating external surfaces (GitHub/Jira/Slack) + every tracked repo's recent ledger entries.</td></tr>
       <tr><td><code>/yang-toolkit:week</code></td><td>Cross-repo weekly report from <code>~/.config/harness/repos.json</code>.</td></tr>
-      <tr><td><code>/yang-toolkit:dashboard</code></td><td>Render <code>.claude/ledger.jsonl</code> to <code>.claude/dashboard.html</code> (timeline + kanban + stats).</td></tr>
+      <tr><td><code>/yang-toolkit:dashboard</code></td><td>Render <code>.claude/ledger.jsonl</code> + live git into a timestamped pair: an interactive <code>dashboard-&lt;TS&gt;.html</code> (timeline + kanban + stats, with outcome filters, feature-focus, and an <strong>in-browser git diff reviewer</strong>) and a flat <code>dashboard-&lt;TS&gt;.md</code> for review/AI.</td></tr>
+      <tr><td><code>/yang-toolkit:share-plan &lt;slug&gt;</code></td><td>Render a plan (or any plan-shaped markdown) to a clean, self-contained, shareable HTML doc at <code>.claude/plans/&lt;slug&gt;-&lt;TS&gt;.html</code>. Read-only snapshot.</td></tr>
       <tr><td><code>/yang-toolkit:claude-md-gaps</code></td><td>Review nested-folder <code>CLAUDE.md</code> candidates the passive hook flagged. Gated on accept.</td></tr>
       <tr><td><code>/yang-toolkit:curate-claude-md</code></td><td>Audit + reorganize existing <code>CLAUDE.md</code> files (technical rules drift up, business rules drift down).</td></tr>
     </tbody>
@@ -374,6 +397,7 @@
       <tr><td>Edit production code without touching its test mirror</td><td>Inject a one-time reminder into Claude's next-turn context (per-session dedupe). Disable with <code>HARNESS_DISABLE_TEST_PARITY=1</code>.</td></tr>
       <tr><td>Subagent finishes (<code>SubagentStop</code>)</td><td>Write current agent name to <code>.claude/state/current-agent.txt</code> (drives statusline + dashboard).</td></tr>
       <tr><td>Session ends (<code>Stop</code>)</td><td>Append summary to <code>.claude/ledger.jsonl</code> with <code>outcome: in-progress</code>.</td></tr>
+      <tr><td>Session ends (<code>Stop</code>)</td><td>Play a short completion sound so you can tell which of several parallel sessions just finished. Opt out with <code>HARNESS_DISABLE_NOTIFY=1</code>; override the sound with <code>HARNESS_NOTIFY_SOUND=/path</code>; add a desktop notification with <code>HARNESS_NOTIFY_DESKTOP=1</code>.</td></tr>
     </tbody>
   </table>
 </section>
@@ -419,8 +443,9 @@ claude <span class="cmd-flag">--resume</span>                     <span class="c
 <pre>client-repo/
 ├── .claude/
 │   ├── ledger.jsonl       <span class="cmd-comment"># COMMIT — cross-feature memory</span>
-│   ├── plans/             <span class="cmd-comment"># COMMIT — reviewable plan artifacts</span>
+│   ├── plans/             <span class="cmd-comment"># COMMIT the .md — reviewable plan artifacts</span>
 │   │   ├── &lt;slug&gt;.md      <span class="cmd-comment"># one per planned feature; status tracks lifecycle</span>
+│   │   ├── &lt;slug&gt;-&lt;TS&gt;.html <span class="cmd-comment"># gitignore — /share-plan export (regenerable)</span>
 │   │   └── .fuzzy-words   <span class="cmd-comment"># OPTIONAL — override default fuzzy-word lint</span>
 │   ├── logs/              <span class="cmd-comment"># gitignore — noisy per-session tool calls</span>
 │   ├── state/             <span class="cmd-comment"># gitignore — ephemeral</span>
@@ -428,7 +453,8 @@ claude <span class="cmd-flag">--resume</span>                     <span class="c
 │   │   ├── current-feature.txt            <span class="cmd-comment"># set by feature-dev-tracked / execute-plan</span>
 │   │   ├── claude-md-candidates.jsonl     <span class="cmd-comment"># pending CLAUDE.md proposals</span>
 │   │   └── test-parity-warned-YYYYMMDD.txt
-│   └── dashboard.html     <span class="cmd-comment"># gitignore — regenerable</span>
+│   ├── dashboard-&lt;TS&gt;.html <span class="cmd-comment"># gitignore — interactive render (timestamped)</span>
+│   └── dashboard-&lt;TS&gt;.md   <span class="cmd-comment"># gitignore — flat review/AI render (paired by TS)</span>
 └── docs/decisions/        <span class="cmd-comment"># COMMIT — per-feature decision trail</span>
     └── 2026-05-28-&lt;slug&gt;/
         ├── 01-discovery.md
@@ -442,7 +468,10 @@ claude <span class="cmd-flag">--resume</span>                     <span class="c
   <p>Add to the repo's <code>.gitignore</code>:</p>
 <pre>.claude/logs/
 .claude/state/
-.claude/dashboard.html</pre>
+.claude/dashboard.html
+.claude/dashboard-*.html
+.claude/dashboard-*.md
+.claude/plans/*.html</pre>
 </section>
 
 <!-- 9 -->

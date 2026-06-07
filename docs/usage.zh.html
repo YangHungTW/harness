@@ -205,8 +205,8 @@
   <div class="hdr-title">
     harness <span class="slash">//</span> <span class="what">使用說明</span>
   </div>
-  <span class="badge">yang-toolkit v0.5.0</span>
-  <span class="badge">2026-05-28</span>
+  <span class="badge">yang-toolkit v0.10.1</span>
+  <span class="badge">2026-06-07</span>
   <span class="badge" style="margin-left:auto;"><a href="usage.html">EN</a> · <b style="color:var(--text);">中文</b></span>
 </header>
 
@@ -255,9 +255,19 @@
   <h2><span class="n">2.</span>計畫先行流程（v0.4.0 新增）</h2>
 
   <h3>Step 1 — 起草計畫</h3>
-<pre><span class="cmd-comment"># 自動撈 ledger + CLAUDE.md + decision dirs 的相關過往。
-# 寫出 .claude/plans/&lt;slug&gt;.md，含自動生成的 Memory References。</span>
+<pre><span class="cmd-comment"># 先做平行 research fan-out，再寫出 .claude/plans/&lt;slug&gt;.md：
+#   - 要照抄的 codebase 慣例／pattern
+#   - 專案歷史：ledger + 既有 plans + decision dirs + CLAUDE.md
+#   - 外部最新研究（透過 deep-research skill），有需要才跑
+# 結果變成 typed Memory References。研究深度「自動判斷」
+# （模糊／大範圍／外部／高風險 → 深；小範圍本地改動 → 淺），你不用下 flag。</span>
 /yang-toolkit:plan-feature <span class="cmd-str">"Add cancellation policy UI to booking flow"</span></pre>
+
+  <p>輸入可以是<strong>任何擷取到的素材</strong>，不限乾淨描述：貼終端機錯誤、
+  GitHub issue URL、會議逐字稿，或直接附上截圖／設計稿 — raw 就好，probe 會拿它
+  對你的 codebase 與歷史做萃取。只有在你不同意自動深度時才覆寫：
+  <code>--deep</code> 強制完整流程（外部研究 + 「先規劃怎麼規劃」那一步）；
+  <code>--shallow</code> 強制單輪輕量。</p>
 
   <p>打開檔案編輯：</p>
   <ul>
@@ -288,6 +298,15 @@
       <tr><td><code>/yang-toolkit:plan-feature --from &lt;slug&gt;</code></td><td>從頭重寫（確認後覆蓋整份檔案）。</td></tr>
     </tbody>
   </table>
+
+  <h3>把計畫分享給不用終端機的人</h3>
+  <p><code>plan.md</code> 在終端機裡很好用，但丟給在 Slack／瀏覽器的人很尷尬。
+  把它渲成一份乾淨、自包含的 HTML 文件：</p>
+<pre><span class="cmd-comment"># 寫出 .claude/plans/&lt;slug&gt;-&lt;TS&gt;.html — 唯讀、有時間戳的快照
+# （frontmatter → 標頭，acceptance criteria → checkbox）。可直接寄出／AirDrop。</span>
+/yang-toolkit:share-plan <span class="cmd-str">&lt;slug&gt;</span></pre>
+  <p>它不會動到 <code>.md</code>（真實來源）。要改就用
+  <code>plan-feature --revise</code>，再重跑 <code>share-plan</code> 產生新快照。</p>
 
   <h3>Execute 的 override flag</h3>
   <table>
@@ -356,7 +375,8 @@
     <tbody>
       <tr><td><code>/yang-toolkit:today</code></td><td>當日摘要：聚合 GitHub / Jira / Slack 等外部 surface + 所有追蹤 repo 的最近 ledger entries。</td></tr>
       <tr><td><code>/yang-toolkit:week</code></td><td>跨 repo 週報，來源是 <code>~/.config/harness/repos.json</code>。</td></tr>
-      <tr><td><code>/yang-toolkit:dashboard</code></td><td>把 <code>.claude/ledger.jsonl</code> 渲成 <code>.claude/dashboard.html</code>（timeline + kanban + stats）。</td></tr>
+      <tr><td><code>/yang-toolkit:dashboard</code></td><td>把 <code>.claude/ledger.jsonl</code> + 即時 git 渲成一組有時間戳的成對檔：互動式 <code>dashboard-&lt;TS&gt;.html</code>（timeline + kanban + stats，含 outcome 篩選、feature focus、與<strong>瀏覽器內的 git diff 檢視</strong>）以及給 review/AI 用的純文字 <code>dashboard-&lt;TS&gt;.md</code>。</td></tr>
+      <tr><td><code>/yang-toolkit:share-plan &lt;slug&gt;</code></td><td>把計畫（或任何 plan 形狀的 markdown）渲成乾淨、自包含、可分享的 HTML，輸出在 <code>.claude/plans/&lt;slug&gt;-&lt;TS&gt;.html</code>。唯讀快照。</td></tr>
       <tr><td><code>/yang-toolkit:claude-md-gaps</code></td><td>檢視被動 hook 累積的 nested <code>CLAUDE.md</code> 候選。要 user accept 才會真的寫檔。</td></tr>
       <tr><td><code>/yang-toolkit:curate-claude-md</code></td><td>稽核並重整既有 <code>CLAUDE.md</code>（技術規則往上漂、業務規則往下沉）。</td></tr>
     </tbody>
@@ -374,6 +394,7 @@
       <tr><td>改了 production code 沒動測試</td><td>下一輪 context 注入一次性提醒（per-session 去重）。設 <code>HARNESS_DISABLE_TEST_PARITY=1</code> 可關。</td></tr>
       <tr><td>Subagent 結束（<code>SubagentStop</code>）</td><td>把當前 agent 名稱寫到 <code>.claude/state/current-agent.txt</code>（餵 statusline + dashboard）。</td></tr>
       <tr><td>Session 結束（<code>Stop</code>）</td><td>append 摘要到 <code>.claude/ledger.jsonl</code>，<code>outcome: in-progress</code>。</td></tr>
+      <tr><td>Session 結束（<code>Stop</code>）</td><td>播一聲完成提示音，平行多 session 時知道哪個跑完了。<code>HARNESS_DISABLE_NOTIFY=1</code> 關閉；<code>HARNESS_NOTIFY_SOUND=/path</code> 換音效；<code>HARNESS_NOTIFY_DESKTOP=1</code> 加桌面通知。</td></tr>
     </tbody>
   </table>
 </section>
@@ -416,8 +437,9 @@ claude <span class="cmd-flag">--resume</span>                     <span class="c
 <pre>client-repo/
 ├── .claude/
 │   ├── ledger.jsonl       <span class="cmd-comment"># COMMIT — 跨 feature 的專案記憶</span>
-│   ├── plans/             <span class="cmd-comment"># COMMIT — 可 review 的計畫 artifact</span>
+│   ├── plans/             <span class="cmd-comment"># COMMIT .md — 可 review 的計畫 artifact</span>
 │   │   ├── &lt;slug&gt;.md      <span class="cmd-comment"># 每個被規劃的 feature 一份；status 追蹤生命週期</span>
+│   │   ├── &lt;slug&gt;-&lt;TS&gt;.html <span class="cmd-comment"># gitignore — /share-plan 匯出（可重新產生）</span>
 │   │   └── .fuzzy-words   <span class="cmd-comment"># OPTIONAL — 覆寫預設的模糊詞 lint</span>
 │   ├── logs/              <span class="cmd-comment"># gitignore — 吵雜的 per-session tool calls</span>
 │   ├── state/             <span class="cmd-comment"># gitignore — 短暫狀態</span>
@@ -425,7 +447,8 @@ claude <span class="cmd-flag">--resume</span>                     <span class="c
 │   │   ├── current-feature.txt            <span class="cmd-comment"># feature-dev-tracked / execute-plan 設</span>
 │   │   ├── claude-md-candidates.jsonl     <span class="cmd-comment"># 待處理的 CLAUDE.md 提案</span>
 │   │   └── test-parity-warned-YYYYMMDD.txt
-│   └── dashboard.html     <span class="cmd-comment"># gitignore — 可重新產生</span>
+│   ├── dashboard-&lt;TS&gt;.html <span class="cmd-comment"># gitignore — 互動式 render（有時間戳）</span>
+│   └── dashboard-&lt;TS&gt;.md   <span class="cmd-comment"># gitignore — 純文字 review/AI render（以 TS 配對）</span>
 └── docs/decisions/        <span class="cmd-comment"># COMMIT — 每個 feature 的決策軌跡</span>
     └── 2026-05-28-&lt;slug&gt;/
         ├── 01-discovery.md
@@ -439,7 +462,10 @@ claude <span class="cmd-flag">--resume</span>                     <span class="c
   <p>repo 的 <code>.gitignore</code> 要加：</p>
 <pre>.claude/logs/
 .claude/state/
-.claude/dashboard.html</pre>
+.claude/dashboard.html
+.claude/dashboard-*.html
+.claude/dashboard-*.md
+.claude/plans/*.html</pre>
 </section>
 
 <!-- 9 -->
