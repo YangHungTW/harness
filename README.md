@@ -34,9 +34,11 @@ hook and show up in the statusline / dashboard automatically.
   decision dirs + CLAUDE.md) + conditional recency-grounded external research
   via the `deep-research` skill. Results become typed Memory References. Accepts
   any captured context (description, pasted error, issue URL, screenshot, raw
-  transcript); `--deep` forces external research and "plan for the plan"
-  discipline. Does NOT execute; hand to `/execute-plan` when ready. Supports
-  `--from <slug>` (replan) and `--revise <slug>` (append a revision section).
+  transcript). Research **depth is chosen automatically** (deep for fuzzy / broad
+  / external / risky work -> external research + "plan for the plan"; shallow for
+  small local changes); `--deep` / `--shallow` only override it. Does NOT execute;
+  hand to `/execute-plan` when ready. Supports `--from <slug>` (replan) and
+  `--revise <slug>` (append a revision section).
 - `/yang-toolkit:share-plan` -- render a plan (or any plan-shaped markdown) into
   a clean, self-contained, shareable HTML document for a non-terminal colleague.
   Read-only, timestamped snapshot at `.claude/plans/<slug>-<TS>.html`.

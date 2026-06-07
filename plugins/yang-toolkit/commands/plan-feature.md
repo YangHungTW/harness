@@ -45,13 +45,10 @@ Keep `${CLAUDE_PROJECT_DIR}` for ephemeral / branch-local paths:
     the extraction against your codebase and history).
   - `--from <slug>` (Mode B -- replan an existing plan from scratch)
   - `--revise <slug>` (Mode C -- append a revision section, preserve original)
-- Optional modifier (combine with Mode A): **`--deep`** -- for large or fuzzy
-  efforts. It (a) forces Probe 3 (external recency research) on, and (b) applies
-  the "plan for the plan" discipline: before drafting, first write down HOW you
-  will research and structure this plan, then execute that. Asking the agent to
-  plan its own approach before producing the deliverable is the single best trick
-  for stopping it from cutting corners on a big task. The deliverable is still the
-  `plan.md`.
+- Optional OVERRIDE (combine with Mode A): **`--deep`** / **`--shallow`**. You
+  almost never need these -- depth is chosen automatically (see "Assess depth"
+  below). They only force the call when you disagree with the auto-judgment:
+  `--deep` forces the full treatment, `--shallow` forces a single light pass.
 
 If `$ARGUMENTS` is empty AND no image/transcript is attached, ask the user before
 doing anything else.
@@ -100,6 +97,21 @@ probes **in parallel** (issue the Agent/Task calls in a single message so they
 run concurrently), then consolidating. Each probe returns a short structured
 digest; cap each, never dump full files.
 
+### Assess depth (automatic -- the user should NOT have to ask)
+First judge how much effort this plan warrants, from the input itself. This is the
+command's job, not the user's; never make them remember a flag.
+- **DEEP** when any hold: input is vague / fuzzy, scope is broad or cross-cutting,
+  many files likely, a NEW external dependency is involved, no obvious existing
+  pattern to copy, or there is migration / security / data-loss risk. DEEP =
+  run Probe 3 even for internal work AND apply the "plan for the plan" discipline
+  (before drafting, first write down HOW you will research and structure this
+  plan, then execute that -- the single best trick for stopping the agent from
+  cutting corners on a big task).
+- **SHALLOW** when the change is small, local, single-file, or has an obvious
+  pattern to mirror: one light pass, skip the plan-for-the-plan step.
+`--deep` / `--shallow` only OVERRIDE this judgment; they are never required. State
+the chosen depth (and why) in the final research summary.
+
 Spawn these probes concurrently:
 
 **Probe 1 -- Codebase patterns (always).** Explore the current repo for existing
@@ -125,9 +137,9 @@ Tag any related entry with `outcome: in-progress` as a depends_on candidate, and
 any with `outcome: failed` as a Risk (never a depends_on).
 
 **Probe 3 -- External recency research (conditional).** Run it when the feature
-touches an external library / framework / API / unfamiliar tech, OR whenever
-`--deep` is set. SKIP it for purely internal refactors (unless `--deep`) and say
-you skipped it. Invoke the `deep-research`
+touches an external library / framework / API / unfamiliar tech, OR when the depth
+assessment is DEEP. SKIP it for small internal refactors (a SHALLOW assessment)
+and say you skipped it. Invoke the `deep-research`
 skill (or a focused web search if that skill is unavailable) for *current* best
 practices and recent pitfalls, the point being to beat six-month-old training
 data. Return 2-4 grounded findings, each with a source link, plus any "people are
@@ -243,8 +255,9 @@ Do NOT overwrite the file. Instead:
 
 When the draft is written:
 - Print the file path.
-- Print a one-line research summary: which probes ran, and which were
-  skipped or degraded (e.g. "external research skipped -- internal refactor").
+- Print a one-line research summary: the auto-chosen depth (DEEP/SHALLOW) and
+  why, which probes ran, and which were skipped or degraded (e.g. "shallow:
+  small local change; external research skipped").
 - Print the list of auto-suggested `depends_on` slugs (if any) and
   whether each was accepted.
 - Tell the user: "Review the plan. When ready, run
