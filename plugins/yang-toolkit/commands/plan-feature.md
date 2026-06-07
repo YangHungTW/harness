@@ -1,5 +1,5 @@
 ---
-description: Draft a reviewable plan artifact for a feature. Pulls relevant context from ledger + CLAUDE.md, runs plan mode, emits .claude/plans/<slug>.md with auto-generated Memory References. Does NOT execute. Hand to /yang-toolkit:execute-plan when ready.
+description: Draft a reviewable plan artifact for a feature. Runs a parallel research fan-out (codebase patterns + project history/ledger + conditional recency-grounded external research via deep-research), then plan mode, emitting .claude/plans/<slug>.md with auto-generated, typed Memory References. Does NOT execute. Hand to /yang-toolkit:execute-plan when ready.
 ---
 
 # /yang-toolkit:plan-feature
@@ -35,11 +35,26 @@ Keep `${CLAUDE_PROJECT_DIR}` for ephemeral / branch-local paths:
 
 ## Inputs
 - `$ARGUMENTS` -- one of:
-  - natural-language feature description (Mode A -- fresh)
+  - **any captured context** describing what you want (Mode A -- fresh): a plain
+    description, a pasted terminal error, a bug / GitHub issue URL, a design
+    mockup or screenshot (attach the image to the message), a Slack / meeting
+    transcript, or a half-formed idea. You do NOT need a clean spec -- the
+    research fan-out turns rough input into a grounded plan. If an image or a long
+    transcript is attached, treat it as the PRIMARY source and mine it; do not ask
+    the user to re-type or pre-summarize it (raw is better -- let the probes do
+    the extraction against your codebase and history).
   - `--from <slug>` (Mode B -- replan an existing plan from scratch)
   - `--revise <slug>` (Mode C -- append a revision section, preserve original)
+- Optional modifier (combine with Mode A): **`--deep`** -- for large or fuzzy
+  efforts. It (a) forces Probe 3 (external recency research) on, and (b) applies
+  the "plan for the plan" discipline: before drafting, first write down HOW you
+  will research and structure this plan, then execute that. Asking the agent to
+  plan its own approach before producing the deliverable is the single best trick
+  for stopping it from cutting corners on a big task. The deliverable is still the
+  `plan.md`.
 
-If `$ARGUMENTS` is empty, ask the user before doing anything else.
+If `$ARGUMENTS` is empty AND no image/transcript is attached, ask the user before
+doing anything else.
 
 ## Three entry modes
 
@@ -47,13 +62,14 @@ If `$ARGUMENTS` is empty, ask the user before doing anything else.
 Triggered when `$ARGUMENTS` is natural-language text (not `--from` or
 `--revise`).
 
-1. Derive a kebab-case `slug` from the description. Use the same rule
+1. Derive a kebab-case `slug` from the description (or, for image / transcript
+   input, from the feature you infer from it). Use the same rule
    `/yang-toolkit:feature-dev-tracked` uses so slugs are deterministic
    across commands.
 2. Check `<HARNESS_ROOT>/.claude/plans/<slug>.md`. If it exists,
    STOP and ask the user: Mode B (replan from scratch) or Mode C
    (append a revision)? Do not silently overwrite.
-3. Continue to **Memory recall** below.
+3. Continue to **Research fan-out** below.
 
 ### Mode B -- from existing (replan)
 Triggered by `--from <slug>`.
@@ -62,7 +78,7 @@ Triggered by `--from <slug>`.
    abort with "no such plan; check `ls .claude/plans/`".
 2. Show the user the existing plan's Goal + Acceptance Criteria. Ask:
    "Replan from scratch will overwrite the whole file. Continue?"
-3. On yes, continue to **Memory recall** with the existing plan
+3. On yes, continue to **Research fan-out** with the existing plan
    content as additional context so the new draft can reference what
    was tried.
 
@@ -73,40 +89,62 @@ Triggered by `--revise <slug>`.
 2. Do NOT touch the existing content above `# Execution Log`. You will
    append a `## Revision N -- <ISO date>` block under the section(s)
    the user wants to change, and prepend a one-line note at the top.
-3. Continue to **Memory recall** with the existing plan content as
+3. Continue to **Research fan-out** with the existing plan content as
    context.
 
-## Memory recall (all modes, before drafting)
+## Research fan-out (all modes, before drafting)
 
-Pull four classes of past context. Cap each, do not dump full files.
+Ground the plan in **your repo, your history, and what the community knows right
+now** -- not generic training-data advice. Do this by running several research
+probes **in parallel** (issue the Agent/Task calls in a single message so they
+run concurrently), then consolidating. Each probe returns a short structured
+digest; cap each, never dump full files.
 
-1. **Ledger**: read `<HARNESS_ROOT>/.claude/ledger.jsonl` line
-   by line. Score each entry by:
-   - slug token overlap with the current slug
-   - path/feature stem overlap (if the entry recorded any)
-   - recency: 1.0 within 30 days, decaying linearly to 0 at 180 days
-   Combined: `relevance * 0.6 + recency * 0.4`. Keep top 3.
+Spawn these probes concurrently:
 
-2. **CLAUDE.md grep**: in every `CLAUDE.md` under the project root,
-   search for lines mentioning any slug token or any path stem from
-   the user's description. Keep up to 3 most relevant lines with
-   `file:line` + the matching line.
+**Probe 1 -- Codebase patterns (always).** Explore the current repo for existing
+patterns, conventions, and integration points relevant to the feature. Prefer the
+`Explore` agent (read excerpts, not whole files). Return:
+- 2-4 files whose structure the new work should mirror (`path -- why`)
+- the naming / layering / test conventions to follow
+- the seams where the feature plugs in (entry points, interfaces, configs)
 
-3. **Decision dirs**: list `${CLAUDE_PROJECT_DIR}/docs/decisions/`,
-   match dir names containing any slug token. For each match, read
-   its `05-summary.md` (if present) and extract the first sentence.
-   Keep top 2.
+**Probe 2 -- Project history & learnings (always).** Mine durable state for what
+was already tried (this is your equivalent of "search my past solutions"):
+- `<HARNESS_ROOT>/.claude/ledger.jsonl`, line by line. Score each entry by
+  slug-token overlap, path/feature-stem overlap, and recency (1.0 within 30 days,
+  decaying linearly to 0 at 180 days). Combined `relevance*0.6 + recency*0.4`;
+  keep top 3.
+- prior plans `<HARNESS_ROOT>/.claude/plans/*.md` whose slug tokens overlap;
+  extract each one's Goal and any Risks that actually bit. Keep top 2.
+- `${CLAUDE_PROJECT_DIR}/docs/decisions/` -- dir names containing a slug token;
+  read `05-summary.md` (if present), first sentence. Keep top 2.
+- every `CLAUDE.md` under the project root -- lines mentioning a slug token or
+  path stem; keep up to 3 with `file:line` + the matching line.
+Tag any related entry with `outcome: in-progress` as a depends_on candidate, and
+any with `outcome: failed` as a Risk (never a depends_on).
 
-4. **Suggested depends_on** (auxiliary): if any ledger entry from
-   step 1 has `outcome: in-progress` AND high relevance, surface it
-   to the user as: "feature '<other-slug>' looks unfinished and
-   related -- add to `depends_on`?" Only add to frontmatter if the
-   user confirms. Never suggest `outcome: failed` entries (those
-   belong in Risks, not depends_on).
+**Probe 3 -- External recency research (conditional).** Run it when the feature
+touches an external library / framework / API / unfamiliar tech, OR whenever
+`--deep` is set. SKIP it for purely internal refactors (unless `--deep`) and say
+you skipped it. Invoke the `deep-research`
+skill (or a focused web search if that skill is unavailable) for *current* best
+practices and recent pitfalls, the point being to beat six-month-old training
+data. Return 2-4 grounded findings, each with a source link, plus any "people are
+moving away from X" signals.
 
-If all four classes return nothing, do not invent. The Memory
-References section will be left empty with a
-`<!-- no prior context found -->` note.
+**Consolidate.** Merge the probe digests, de-dupe, and route the results:
+- **Memory References** <- internal hits (ledger / decision / claude-md / prior
+  plan) AND codebase patterns to mirror AND external findings -- each as one
+  auto line, typed (see types below).
+- **Risks** <- failed past attempts (Probe 2) + external pitfalls (Probe 3).
+- **Files Touched** <- informed by Probe 1's integration points.
+- **depends_on suggestion** <- any in-progress related work: surface it as
+  "feature '<other-slug>' looks unfinished and related -- add to `depends_on`?"
+  and add to frontmatter ONLY if the user confirms.
+
+If every probe returns nothing, do not invent. The Memory References section is
+left empty with a `<!-- no prior context found -->` note.
 
 ## Draft the plan (Mode A and Mode B)
 
@@ -155,7 +193,9 @@ status: draft
 
 # Memory References
 <!-- auto-generated below; remove individual lines if irrelevant.
-Lines without <!--auto--> are preserved on --revise. -->
+Lines without <!--auto--> are preserved on --revise.
+<type> is one of: ledger | decision | claude-md | plan | pattern | external.
+For [external], <path> is a URL. -->
 
 - <!--auto--> [<type>] <path> -- <one-line takeaway>
 
@@ -165,18 +205,21 @@ Lines without <!--auto--> are preserved on --revise. -->
 
 Population rules:
 - **Acceptance Criteria**: draft 2-5 criteria based on the user's
-  description and recalled context. NEVER use fuzzy words in `Pass:`
+  description and the research findings. NEVER use fuzzy words in `Pass:`
   -- /execute-plan has a lint that will reject the plan. If you're
   unsure how to verify something, ASK the user; do not invent a
   command.
-- **Files Touched**: best-effort prediction. User can correct on
-  review.
+- **Files Touched**: best-effort prediction, informed by Probe 1's
+  integration points. User can correct on review.
+- **Risks**: include failed past attempts (Probe 2) and external
+  pitfalls / "moving away from X" signals (Probe 3).
 - **Out of Scope**: list only feature-level scope cuts (specific
   subsystems, flows, schemas). Do NOT write "no changes outside Files
   Touched" -- /execute-plan enforces that automatically.
-- **Memory References**: write the recall results from the previous
-  section. Each auto line MUST start with `<!--auto-->` immediately
-  after the dash so `--revise` can refresh it.
+- **Memory References**: write the consolidated research findings from
+  the previous section, each typed (ledger / decision / claude-md /
+  plan / pattern / external). Each auto line MUST start with
+  `<!--auto-->` immediately after the dash so `--revise` can refresh it.
 
 ## Mode C (revise) differences
 
@@ -200,6 +243,8 @@ Do NOT overwrite the file. Instead:
 
 When the draft is written:
 - Print the file path.
+- Print a one-line research summary: which probes ran, and which were
+  skipped or degraded (e.g. "external research skipped -- internal refactor").
 - Print the list of auto-suggested `depends_on` slugs (if any) and
   whether each was accepted.
 - Tell the user: "Review the plan. When ready, run
@@ -212,7 +257,9 @@ When the draft is written:
 | Situation                                                | Behavior                                                                                                                              |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Mode A slug collides with an existing plan               | Stop, offer Mode B or Mode C. Never silently overwrite.                                                                              |
-| Memory recall finds 0 hits across all four classes       | Leave Memory References empty with `<!-- no prior context found -->`. Do not fabricate.                                              |
+| All research probes return 0 hits                        | Leave Memory References empty with `<!-- no prior context found -->`. Do not fabricate.                                              |
+| `deep-research` skill unavailable (Probe 3)              | Fall back to a focused web search; if that is also unavailable, skip Probe 3 and note "external research skipped" in the report.      |
+| A parallel probe errors or times out                     | Continue with whatever the other probes returned; mention the degraded probe in the final report. Never block drafting on one probe. |
 | User declines plan mode (or it errors)                   | Continue with the warning banner. Do not abort -- a flagged draft is still useful.                                                   |
 | `depends_on` suggestion is an `outcome: failed` entry    | Do not suggest. Surface it as a Risks bullet instead.                                                                                |
 | Mode C on a plan with no prior `<!--auto-->` lines       | Refresh produces a clean auto block. All previous user-added lines are preserved.                                                    |
