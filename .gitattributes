@@ -1,0 +1,6 @@
+# Treat these as text so git shows real line diffs (non-ASCII glyphs in the
+# HTML templates -- ✓ ● — etc. -- otherwise trip git's binary heuristic).
+*.html  text
+*.md    text
+*.sh    text eol=lf
+*.json  text
