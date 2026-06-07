@@ -27,6 +27,7 @@ yarn-error.log*
 .claude/dashboard.html
 .claude/dashboard-*.html
 .claude/dashboard-*.md
+.claude/plans/*.html
 .claude/scheduled_tasks.lock
 .claude/*.lock
 

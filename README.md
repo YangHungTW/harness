@@ -29,10 +29,17 @@ hook and show up in the statusline / dashboard automatically.
 
 **Commands** (`plugins/yang-toolkit/commands/`)
 - `/yang-toolkit:plan-feature` -- draft a reviewable plan artifact at
-  `.claude/plans/<slug>.md` with auto-generated Memory References from
-  ledger + CLAUDE.md + decision dirs. Does NOT execute; hand to
-  `/execute-plan` when ready. Supports `--from <slug>` (replan) and
-  `--revise <slug>` (append a revision section).
+  `.claude/plans/<slug>.md`. Runs a **parallel research fan-out** before
+  drafting: codebase patterns + project history (ledger + prior plans +
+  decision dirs + CLAUDE.md) + conditional recency-grounded external research
+  via the `deep-research` skill. Results become typed Memory References. Accepts
+  any captured context (description, pasted error, issue URL, screenshot, raw
+  transcript); `--deep` forces external research and "plan for the plan"
+  discipline. Does NOT execute; hand to `/execute-plan` when ready. Supports
+  `--from <slug>` (replan) and `--revise <slug>` (append a revision section).
+- `/yang-toolkit:share-plan` -- render a plan (or any plan-shaped markdown) into
+  a clean, self-contained, shareable HTML document for a non-terminal colleague.
+  Read-only, timestamped snapshot at `.claude/plans/<slug>-<TS>.html`.
 - `/yang-toolkit:execute-plan` -- parse + validate a plan, resolve
   `depends_on`, then run it per the plan's `orchestration`: `single`
   (assemble a `/goal` condition and delegate to `tdd-feature` /
@@ -75,6 +82,11 @@ hook and show up in the statusline / dashboard automatically.
   flight (`.claude/state/current-feature.txt` non-empty); the appended entry is
   tagged `source:"stop-hook"` with outcome=`in-progress` (user-correctable via
   `/ledger-append`). If no feature is in flight the hook exits without appending.
+- `Stop` -> also play a short completion sound (and optional desktop
+  notification) so you can tell which of several parallel sessions just finished.
+  Best-effort, never blocks. Opt out with `HARNESS_DISABLE_NOTIFY=1`; override the
+  sound with `HARNESS_NOTIFY_SOUND=/path`; enable a desktop notification with
+  `HARNESS_NOTIFY_DESKTOP=1`.
 
 **Statusline** (`plugins/yang-toolkit/statusline/statusline.sh`)
 - bash 3.2 / BSD portable
@@ -158,7 +170,7 @@ TDD discipline matters:
 
 | Step | Command | What it does |
 | ---- | ------- | ------------ |
-| 0p. Plan (optional pre-stage) | `/yang-toolkit:plan-feature "<description>"` | Enters plan mode, recalls past context (ledger + CLAUDE.md + decision dirs), writes `.claude/plans/<slug>.md`. Auto-suggests `depends_on` for related unfinished features. Review the file, edit if needed. |
+| 0p. Plan (optional pre-stage) | `/yang-toolkit:plan-feature "<description>"` | Runs a parallel research fan-out (codebase patterns + ledger/prior-plans/decision history + conditional recency-grounded external research), then plan mode, writes `.claude/plans/<slug>.md`. Auto-suggests `depends_on` for related unfinished features. Review the file, edit if needed. Then `/yang-toolkit:share-plan <slug>` for a shareable HTML doc. |
 | 0x. Execute the plan | `/yang-toolkit:execute-plan` (or `--from <slug>`, `--dry-run`, `--single` / `--team` / `--workflow`, `--auto` overrides) | Parses + validates the plan, then runs it one of three ways per the plan's `orchestration`: **single** (sequential `/goal` loop → `tdd-feature` / `feature-dev-tracked`), **workflow** (deterministic parallel fan-out via the built-in `Workflow` tool — partitions Files Touched into disjoint slices, implements them concurrently, then verifies each Acceptance Criterion), or **team** (experimental agent-teams). With `--auto` the `single`/`team` `/goal` loop runs unattended. Updates plan status + appends ledger at the end. |
 | 0a. Start (regular flow, no plan stage) | `/yang-toolkit:feature-dev-tracked "<one-line description>"` | Wraps `/feature-dev`. Drives discovery -> architecture -> implementation -> review -> summary; writes one decision doc per phase under `docs/decisions/{date}-{slug}/`; appends a ledger summary at the end. |
 | 0b. Start (TDD flow, no plan stage) | `/yang-toolkit:tdd-feature "<description>"` OR `/yang-toolkit:tdd-feature` (continues from a paused feature-dev-tracked) | Enforces red -> green -> refactor per test case; writes a `02b-test-plan.md` then a `03-tdd-cycles.md` log; shares the same decision dir and ledger schema as feature-dev-tracked. Adds a `cycles` field to the ledger entry. |
