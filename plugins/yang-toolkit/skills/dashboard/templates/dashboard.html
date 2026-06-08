@@ -483,6 +483,50 @@
   @media (max-width: 560px) {
     .timeline { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
+
+  /* ---------- CHANGES / REVIEW (branch diff, line-numbered) ---------- */
+  .change-toolbar { margin: 6px 0 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .change-toolbar[hidden] { display: none; }
+  .change-toolbar button {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px;
+    color: var(--muted); font: inherit; font-size: 11px; padding: 3px 10px; cursor: pointer;
+  }
+  .change-toolbar button:hover { color: var(--text); border-color: var(--accent); }
+  .change-toolbar .ct-hint { font-size: 11px; color: var(--muted); }
+  .filelist { margin-bottom: 16px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .fl-row {
+    display: flex; align-items: center; gap: 10px; padding: 4px 10px; cursor: pointer;
+    border-bottom: 1px solid var(--line); font-size: 12px;
+  }
+  .fl-row:last-child { border-bottom: none; }
+  .fl-row:hover { background: var(--panel-2); }
+  .fl-row .fn { flex: 1; word-break: break-all; color: var(--text); }
+  .changefile { margin-bottom: 12px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .cf-head {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    background: var(--panel-2); cursor: pointer;
+  }
+  .cf-head:hover { background: var(--line); }
+  .cf-head .fn { flex: 1; word-break: break-all; color: var(--text); }
+  .cf-diff { overflow-x: auto; background: #0a0c10; font-size: 12px; line-height: 1.5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  .cf-diff.collapsed { display: none; }
+  .dl { display: grid; grid-template-columns: 46px 46px 1fr; white-space: pre; }
+  .dl .lno {
+    text-align: right; padding: 0 8px; color: var(--muted); opacity: 0.5;
+    -webkit-user-select: none; user-select: none; border-right: 1px solid var(--line);
+  }
+  .dl .lc { padding: 0 10px; }
+  .dl.add  { background: rgba(74,222,128,0.08); }
+  .dl.add  .lc { color: var(--c-merged); }
+  .dl.del  { background: rgba(248,113,113,0.08); }
+  .dl.del  .lc { color: var(--c-failed); }
+  .dl.hunk { background: var(--panel-2); }
+  .dl.hunk .lc, .dl.hunk .lno { color: var(--accent); opacity: 1; }
+  .dl.ctx  .lc { color: var(--text); opacity: 0.8; }
+  .dl.trunc .lc { color: var(--c-in-progress); font-style: italic; }
+  .plus  { color: var(--c-merged); }
+  .minus { color: var(--c-failed); }
 </style>
 </head>
 <body>
@@ -499,15 +543,18 @@ __LEDGER_DATA__
 
 <!--
   Git side-channel. The dashboard skill REPLACES the contents of this block with
-  a JSON OBJECT describing the working tree + recent commits collected at render
-  time (read-only). Shape:
+  a JSON OBJECT describing the branch diff (vs base) collected at render time
+  (read-only). Shape:
   {
     "unavailable": false,            // true if not a git repo / git failed
     "repo": string, "branch": string, "head": string,
-    "dirty": boolean,
-    "working": [ { "file", "status":"M|A|D|R|?", "staged":bool, "patch":string } ],
-    "commits": [ { "short","sha","author","date","subject",
-                   "files":[ { "file","added":int,"removed":int,"patch":string } ] } ]
+    "base": string|null,             // base ref the diff is taken against (e.g. "main")
+    "dirty": boolean,                // working tree has uncommitted changes
+    // changes = `git diff <base>` split per file = the review surface: every
+    // file changed on this branch, INCLUDING uncommitted edits, in one place.
+    "changes": [ { "file","status":"M|A|D|R|?","added":int,"removed":int,"patch":string } ],
+    // commits ahead of base, context only (no per-file patches -- the diff is above)
+    "commits": [ { "short","sha","author","date","subject" } ]
   }
   Patches are unified-diff text; the page colorizes them client-side. If the
   __GIT_DATA__ token is left unreplaced, loadGit() falls back to {unavailable:true}
@@ -572,9 +619,13 @@ __GIT_DATA__
   <section class="panel">
     <h2>Changes -- review in browser</h2>
     <div class="gitbar" id="gitbar"></div>
-    <div class="change-h" id="working-h" hidden>Working tree (uncommitted)</div>
-    <div id="git-working"></div>
-    <div class="change-h" id="commits-h" hidden>Recent commits -- last 14 days</div>
+    <div class="change-toolbar" id="change-toolbar" hidden>
+      <button type="button" id="toggle-all">collapse all</button>
+      <span class="ct-hint">click a file below to jump · click a file header to fold it</span>
+    </div>
+    <div class="filelist" id="filelist"></div>
+    <div id="git-changes"></div>
+    <div class="change-h" id="commits-h" hidden>Commits on this branch</div>
     <div id="git-commits"></div>
   </section>
 
@@ -891,18 +942,42 @@ __GIT_DATA__
     return g;
   }
 
-  // Unified-diff text -> colorized, escaped HTML (one <span> per line).
-  function renderDiffHtml(patch) {
-    if (!patch) return '<span class="ln ctx">(no textual diff -- binary or empty)</span>';
-    return patch.split("\n").map(function (line) {
-      var cls = "ctx";
-      if (/^\+\+\+ |^--- /.test(line)) cls = "ctx";
-      else if (line.charAt(0) === "+") cls = "add";
-      else if (line.charAt(0) === "-") cls = "del";
-      else if (line.indexOf("@@") === 0) cls = "hunk";
-      else if (/^\\ No newline/.test(line) || /diff truncated/i.test(line)) cls = "trunc";
-      return '<span class="ln ' + cls + '">' + escapeHtml(line.length ? line : " ") + "</span>";
-    }).join("");
+  // Unified-diff text -> line-numbered, colorized, escaped HTML rows.
+  // Tracks old/new line numbers from @@ hunk headers; skips git file-header noise
+  // (filename is shown separately in the file header).
+  function renderDiff(patch) {
+    if (!patch) {
+      return '<div class="dl ctx"><span class="lno"></span><span class="lno"></span>' +
+             '<span class="lc">(no textual diff -- binary, empty, or rename only)</span></div>';
+    }
+    var oldNo = 0, newNo = 0, out = [];
+    patch.split("\n").forEach(function (line) {
+      if (/^diff --git /.test(line) || /^index /.test(line) ||
+          /^--- /.test(line) || /^\+\+\+ /.test(line) ||
+          /^new file mode/.test(line) || /^deleted file mode/.test(line) ||
+          /^old mode|^new mode/.test(line) ||
+          /^rename (from|to) /.test(line) || /^similarity index/.test(line) ||
+          /^Binary files /.test(line)) {
+        return;
+      }
+      var m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+      if (m) {
+        oldNo = parseInt(m[1], 10); newNo = parseInt(m[2], 10);
+        out.push('<div class="dl hunk"><span class="lno"></span><span class="lno"></span>' +
+                 '<span class="lc">' + escapeHtml(line) + '</span></div>');
+        return;
+      }
+      var c0 = line.charAt(0), cls = "ctx", lo = "", ln = "";
+      if (/diff truncated/i.test(line) || /^\\ No newline/.test(line)) {
+        cls = "trunc";
+      } else if (c0 === "+") { cls = "add"; ln = newNo++; }
+      else if (c0 === "-") { cls = "del"; lo = oldNo++; }
+      else { lo = oldNo++; ln = newNo++; }
+      out.push('<div class="dl ' + cls + '"><span class="lno">' + lo + '</span>' +
+               '<span class="lno">' + ln + '</span>' +
+               '<span class="lc">' + escapeHtml(line.length ? line : " ") + '</span></div>');
+    });
+    return out.join("");
   }
 
   function statusClass(st) {
@@ -935,93 +1010,106 @@ __GIT_DATA__
     if (dirty) dirty.hidden = !(git && git.dirty);
   }
 
-  // focusFeature: when set, commits NOT linked to that feature are dimmed.
-  function renderGit(git, records, focusFeature) {
-    var bar = document.getElementById("gitbar");
-    var workH = document.getElementById("working-h");
-    var work = document.getElementById("git-working");
+  // The review surface = every file changed on this branch vs base (git.changes,
+  // which is `git diff <base>` -> committed-on-branch + uncommitted, all in one).
+  // Files are listed and rendered EXPANDED by default. focusFeature only dims
+  // unrelated commits in the context list below.
+  function renderChanges(git, records, focusFeature) {
+    var bar  = document.getElementById("gitbar");
+    var tb   = document.getElementById("change-toolbar");
+    var fl   = document.getElementById("filelist");
+    var box  = document.getElementById("git-changes");
     var commH = document.getElementById("commits-h");
     var comm = document.getElementById("git-commits");
-    if (!bar || !work || !comm) return;
-    bar.innerHTML = ""; work.innerHTML = ""; comm.innerHTML = "";
+    if (!bar || !box) return;
+    bar.innerHTML = ""; box.innerHTML = "";
+    if (fl) fl.innerHTML = "";
+    if (comm) comm.innerHTML = "";
 
     if (!git || git.unavailable) {
       bar.innerHTML = '<span class="empty-note">no git data (not a repo, or git unavailable at render time)</span>';
-      if (workH) workH.hidden = true;
+      if (tb) tb.hidden = true;
       if (commH) commH.hidden = true;
       return;
     }
 
-    var working = git.working || [];
+    var changes = git.changes || [];
     var commits = git.commits || [];
+    var add = 0, del = 0;
+    changes.forEach(function (f) { add += (f.added || 0); del += (f.removed || 0); });
+
     bar.innerHTML =
       'branch <span class="b">' + escapeHtml(git.branch || "-") + '</span>'
+      + (git.base ? ' vs <span class="b">' + escapeHtml(git.base) + '</span>' : '')
       + ' &middot; HEAD <span class="b">' + escapeHtml(git.head || "-") + '</span>'
-      + ' &middot; <span class="b">' + working.length + '</span> uncommitted'
-      + ' &middot; <span class="b">' + commits.length + '</span> commits (14d)';
+      + ' &middot; <span class="b">' + changes.length + '</span> files changed'
+      + ' &middot; <span class="plus">+' + add + '</span> <span class="minus">-' + del + '</span>'
+      + (git.dirty ? ' &middot; <span class="b" style="color:var(--c-in-progress)">includes uncommitted</span>' : '');
 
-    // Working tree
-    if (workH) workH.hidden = working.length === 0;
-    if (!working.length) {
-      work.innerHTML = '<div class="empty-note">working tree clean -- nothing uncommitted.</div>';
+    if (!changes.length) {
+      if (tb) tb.hidden = true;
+      box.innerHTML = '<div class="empty-note">no changes vs ' +
+        escapeHtml(git.base || "HEAD") + ' -- nothing to review.</div>';
     } else {
-      working.forEach(function (f, i) {
-        var row = document.createElement("div");
-        row.className = "filerow";
-        row.setAttribute("data-toggle", "w" + i);
-        row.innerHTML =
+      if (tb) tb.hidden = false;
+      // overview list (jump targets)
+      if (fl) {
+        changes.forEach(function (f, i) {
+          var r = document.createElement("div");
+          r.className = "fl-row";
+          r.setAttribute("data-scroll", "f" + i);
+          r.innerHTML =
+            '<span class="st ' + statusClass(f.status) + '">' + escapeHtml((f.status || "?").charAt(0)) + '</span>'
+            + '<span class="fn">' + escapeHtml(f.file || "(unknown)") + '</span>'
+            + '<span class="stat"><span class="plus">+' + (f.added || 0) + '</span> '
+            + '<span class="minus">-' + (f.removed || 0) + '</span></span>';
+          fl.appendChild(r);
+        });
+      }
+      // per-file diffs, EXPANDED by default
+      changes.forEach(function (f, i) {
+        var wrap = document.createElement("div");
+        wrap.className = "changefile";
+        wrap.id = "f" + i;
+        var head = document.createElement("div");
+        head.className = "cf-head";
+        head.setAttribute("data-toggle", "fd" + i);
+        head.innerHTML =
           '<span class="st ' + statusClass(f.status) + '">' + escapeHtml((f.status || "?").charAt(0)) + '</span>'
           + '<span class="fn">' + escapeHtml(f.file || "(unknown)") + '</span>'
-          + '<span class="tag">' + (f.staged ? "staged" : "unstaged") + '</span>';
-        var pre = document.createElement("pre");
-        pre.className = "diff collapsed";
-        pre.id = "w" + i;
-        pre.innerHTML = renderDiffHtml(f.patch);
-        work.appendChild(row);
-        work.appendChild(pre);
+          + '<span class="stat"><span class="plus">+' + (f.added || 0) + '</span> '
+          + '<span class="minus">-' + (f.removed || 0) + '</span></span>';
+        var d = document.createElement("div");
+        d.className = "cf-diff";
+        d.id = "fd" + i;
+        d.innerHTML = renderDiff(f.patch);
+        wrap.appendChild(head);
+        wrap.appendChild(d);
+        box.appendChild(wrap);
       });
     }
 
-    // Commits
+    // Commits on this branch (context only -- the diffs above are the review)
     var shaMap = featureShaMap(records);
     var focusShas = focusFeature ? shaMap[focusFeature] : null;
     if (commH) commH.hidden = commits.length === 0;
-    if (!commits.length) {
-      comm.innerHTML = '<div class="empty-note">no commits in the last 14 days.</div>';
-    } else {
-      commits.forEach(function (c, i) {
-        var linked = focusFeature ? commitMatchesFeature(c, focusShas) : true;
-        var row = document.createElement("div");
-        row.className = "commitrow" + (linked ? "" : " dim");
-        row.setAttribute("data-toggle", "c" + i);
-        var when = c.date ? new Date(c.date) : null;
-        row.innerHTML =
-          '<span class="sha">' + escapeHtml(c.short || "") + '</span>'
-          + '<span class="subj">' + escapeHtml(c.subject || "") + '</span>'
-          + '<span class="who">' + escapeHtml(c.author || "") + (when ? " &middot; " + shortDate(when) : "") + '</span>';
-        var box = document.createElement("div");
-        box.className = "commit-files collapsed";
-        box.id = "c" + i;
-        (c.files || []).forEach(function (f) {
-          var fhdr = document.createElement("div");
-          fhdr.className = "filerow";
-          fhdr.style.cursor = "default";
-          fhdr.innerHTML =
-            '<span class="fn">' + escapeHtml(f.file || "") + '</span>'
-            + '<span class="stat"><span class="plus">+' + (f.added || 0) + '</span> '
-            + '<span class="minus">-' + (f.removed || 0) + '</span></span>';
-          var pre = document.createElement("pre");
-          pre.className = "diff";
-          pre.innerHTML = renderDiffHtml(f.patch);
-          box.appendChild(fhdr);
-          box.appendChild(pre);
+    if (comm) {
+      if (!commits.length) {
+        comm.innerHTML = '<div class="empty-note">no commits ahead of ' +
+          escapeHtml(git.base || "base") + '.</div>';
+      } else {
+        commits.forEach(function (c) {
+          var linked = focusFeature ? commitMatchesFeature(c, focusShas) : true;
+          var row = document.createElement("div");
+          row.className = "commitrow" + (linked ? "" : " dim");
+          var when = c.date ? new Date(c.date) : null;
+          row.innerHTML =
+            '<span class="sha">' + escapeHtml(c.short || "") + '</span>'
+            + '<span class="subj">' + escapeHtml(c.subject || "") + '</span>'
+            + '<span class="who">' + escapeHtml(c.author || "") + (when ? " &middot; " + shortDate(when) : "") + '</span>';
+          comm.appendChild(row);
         });
-        if (!(c.files || []).length) {
-          box.innerHTML = '<div class="empty-note">no file-level diff captured.</div>';
-        }
-        comm.appendChild(row);
-        comm.appendChild(box);
-      });
+      }
     }
   }
 
@@ -1094,7 +1182,7 @@ __GIT_DATA__
         else { focusNote.hidden = true; }
       }
       renderAll();
-      renderGit(GIT, ALL, state.feature);   // update which commits are linked
+      renderChanges(GIT, ALL, state.feature);   // update which commits are linked
     }
     document.addEventListener("click", function (ev) {
       if (!ev.target.closest) return;
@@ -1112,7 +1200,7 @@ __GIT_DATA__
       });
     }
 
-    // Expand/collapse a diff or a commit's file list.
+    // Expand/collapse a single file diff (click its header).
     document.addEventListener("click", function (ev) {
       var t = ev.target.closest && ev.target.closest("[data-toggle]");
       if (!t) return;
@@ -1120,9 +1208,32 @@ __GIT_DATA__
       if (box) box.classList.toggle("collapsed");
     });
 
+    // Jump to a file from the overview list (and make sure it's expanded).
+    document.addEventListener("click", function (ev) {
+      var r = ev.target.closest && ev.target.closest("[data-scroll]");
+      if (!r) return;
+      var target = document.getElementById(r.getAttribute("data-scroll"));
+      if (!target) return;
+      var d = target.querySelector(".cf-diff");
+      if (d) d.classList.remove("collapsed");
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    // Collapse all / expand all file diffs.
+    var toggleAll = document.getElementById("toggle-all");
+    if (toggleAll) {
+      toggleAll.addEventListener("click", function () {
+        var diffs = document.querySelectorAll(".cf-diff");
+        var anyOpen = false;
+        diffs.forEach(function (d) { if (!d.classList.contains("collapsed")) anyOpen = true; });
+        diffs.forEach(function (d) { d.classList.toggle("collapsed", anyOpen); });
+        toggleAll.textContent = anyOpen ? "expand all" : "collapse all";
+      });
+    }
+
     renderAll();
     renderGitHeader(GIT);
-    renderGit(GIT, ALL, state.feature);
+    renderChanges(GIT, ALL, state.feature);
   });
 })();
 </script>

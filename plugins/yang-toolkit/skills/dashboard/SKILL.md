@@ -1,6 +1,6 @@
 ---
 name: dashboard
-description: Read the current repo's `.claude/ledger.jsonl`, join it with the live git working tree + recent commits, and render a paired artifact -- an interactive HTML view (timeline, feature kanban, per-agent tokens, and an in-browser diff reviewer) plus a markdown view for review/AI. TRIGGER on /dashboard, "最近做了什麼", "本專案進度", "dashboard", "this project status".
+description: Read the current repo's `.claude/ledger.jsonl`, join it with the live git branch diff (this branch vs its base, including uncommitted changes), and render a paired artifact -- an interactive HTML view (timeline, feature kanban, per-agent tokens, and an in-browser code-review diff) plus a markdown view for review/AI. TRIGGER on /dashboard, "最近做了什麼", "本專案進度", "dashboard", "this project status".
 ---
 
 # dashboard
@@ -84,39 +84,47 @@ went through a /yang-toolkit flow (this is how "git history 自動補" is satisf
 Use the CURRENT worktree (`${CLAUDE_PROJECT_DIR}`) -- that is where uncommitted
 changes live. All commands are READ-ONLY; tolerate any failure (skip that piece).
 
+The review surface is the **branch diff**: every file changed on this branch vs
+its base, INCLUDING uncommitted edits, in one place. This is the key design point
+-- the user commits as they go, so "only show uncommitted" would show nothing.
+`git diff <base>` (no `...`) compares the base commit to the WORKING TREE, so it
+captures committed-on-branch + staged + unstaged changes in a single diff.
+
 1. **Availability.** `git -C "${CLAUDE_PROJECT_DIR}" rev-parse --is-inside-work-tree`.
    If it is not `true` (no git, bare, error): embed `{"unavailable": true}` in the
    git-data block and SKIP the rest of this section. The page degrades to a
    "no git data" note.
 2. **Context.** `branch` = `git -C "$DIR" rev-parse --abbrev-ref HEAD`;
    `head` = `git -C "$DIR" rev-parse --short HEAD`;
-   `repo` = basename of `git -C "$DIR" rev-parse --show-toplevel`.
-3. **Working tree (the "this change" the user most wants).**
-   `git -C "$DIR" status --porcelain=v1`. `dirty` = (any output). For each entry
-   build one `working[]` item `{file, status, staged, patch}`:
-   - `status` = first status char (`M`/`A`/`D`/`R`/`?`); `staged` = true if the
-     index column (first column) is non-space.
-   - `patch`: staged change -> `git -C "$DIR" diff --cached -- <file>`; unstaged
-     change -> `git -C "$DIR" diff -- <file>`. Untracked (`??`) -> leave `patch`
-     empty (the renderer shows a placeholder). A file changed in BOTH index and
-     worktree: emit two items (one staged, one unstaged).
-4. **Recent commits.**
-   `git -C "$DIR" log --since="14 days ago" --max-count=30 --no-merges --pretty=format:'%H%x09%h%x09%an%x09%aI%x09%s'`.
-   Tab-split into `{sha, short, author, date, subject}`. For each commit, per-file
-   stats + patch from `git -C "$DIR" show <sha> --no-color --format= --numstat`
-   (gives `added  removed  file`) and `git -C "$DIR" show <sha> --no-color
-   --format= -- <file>` (or split one `git show <sha>` patch by `diff --git`).
-   Build `files:[{file, added, removed, patch}]`.
-5. **Bounds (keep the artifact reasonable -- and `log()` anything you drop):**
-   - commits: 14-day window, max 30 (already in the command).
-   - per-file patch: cap ~400 lines; if longer, truncate and append a line
-     containing `... diff truncated (N more lines) ...` (the renderer styles any
-     line containing "diff truncated" distinctly).
-   - binary files: no patch -- leave it empty.
-   - total git payload target < ~1 MB. If over: first drop OLDEST commit patches
-     (keep their row + numstat), then drop all commit patches; ALWAYS keep the
-     working-tree diffs (that is the change being reviewed).
-6. **Privacy.** The patches embed real source into the artifact. That is fine for
+   `repo` = basename of `git -C "$DIR" rev-parse --show-toplevel`;
+   `dirty` = `git -C "$DIR" status --porcelain` is non-empty.
+3. **Determine the base ref to diff against.** Try, in order:
+   - the remote default: `git -C "$DIR" symbolic-ref --quiet refs/remotes/origin/HEAD`
+     -> strip `refs/remotes/` (e.g. `origin/main`);
+   - else `main`, else `master`, if such a ref exists.
+   Resolve `base_sha = git -C "$DIR" merge-base HEAD <baseref>`. Set `base` to a
+   short human label (e.g. `main`). If NO base can be found, or HEAD == base_sha
+   (you are on the base branch with nothing ahead), set `base = null` and use
+   `HEAD` as the diff target -- the review then shows just the uncommitted diff.
+4. **Changes (the review).** Take `git -C "$DIR" diff --no-color <base_sha>` (or
+   `git diff --no-color HEAD` when base is null) and split it per file. For stats,
+   `git -C "$DIR" diff --numstat <base_sha>` gives `added  removed  file`; for
+   status, `git -C "$DIR" diff --name-status <base_sha>` gives `M|A|D|R… file`.
+   Build `changes:[{file, status, added, removed, patch}]`, one per changed file,
+   where `patch` is that file's unified-diff hunk text.
+5. **Commits ahead of base (context only).**
+   `git -C "$DIR" log --no-merges --pretty=format:'%h%x09%an%x09%aI%x09%s' <base_sha>..HEAD`
+   -> `commits:[{short, author, date, subject}]`. NO per-file patches here -- the
+   diff in step 4 is the review; this list is just "what landed on the branch".
+6. **Bounds (keep the artifact reasonable -- and `log()` anything you drop):**
+   - per-file patch: cap ~800 lines; if longer, keep the first ~800 and append a
+     line containing `... diff truncated (N more lines) ...` (the renderer styles
+     any line containing "diff truncated" distinctly).
+   - binary / rename-only files: empty `patch` (the renderer notes it).
+   - total git payload target < ~2 MB. If over, drop the patch text of the
+     LARGEST files first (keep their row + numstat so they still appear in the
+     overview), and `log()` which files were dropped. Never silently omit a file.
+7. **Privacy.** The patches embed real source into the artifact. That is fine for
    the local, git-ignored `.claude/` output, but do not paste the artifact
    somewhere public assuming it is just metadata.
 
@@ -199,7 +207,8 @@ comment) by REPLACING the contents of the
 ## Two views, one source (+ a read-only git join)
 `ledger.jsonl` is the single source of truth for the observability layer. The
 dashboard also *joins* a second, read-only source at render time -- the live git
-working tree + recent commits -- purely for display. Neither artifact is written
+branch diff (this branch vs base, uncommitted included) -- purely for display.
+Neither artifact is written
 back to either source. BOTH the `.html` and the `.md` are *pure renders* of the
 same Rendered set (+ the same git snapshot) -- neither is data, neither is
 authoritative, and they are NOT kept in sync with each other. They cannot drift
@@ -249,25 +258,25 @@ _Generated: <content timestamp, ISO 8601 UTC>._
 ## Tool call heat (top 5)
 - <tool>: <count>
 
-## Changes (working tree)
-_branch <branch> · HEAD <head> · <N> uncommitted_
+## Changes (this branch vs <base>)
+_branch <branch> vs <base> · HEAD <head> · <N> files · +<add>/-<del>
+(includes uncommitted)_
 
 ```diff
-<the uncommitted unified diff, same bounds as the HTML; "working tree clean"
-if nothing is uncommitted>
+<the full branch diff -- the same `git diff <base>` content as the HTML,
+same bounds; "no changes vs <base>" if there is nothing to review>
 ```
 
-## Recent commits (last 14 days)
-- <short> <subject> (+<added>/-<removed>)
+## Commits on this branch
+- <short> <subject>
   ...
 ```
 
 Apply the same source-dedupe and `tokens:0 == unknown` rules as the HTML. Omit a
 section (or show "none") if it has no data rather than emitting an empty heading.
-For the markdown, inline the **working-tree** diff (that is the change under
-review) but list commits as one line each with their shortstat -- do NOT inline
-every commit's full patch (it bloats the file; the full patches live in the
-interactive `.html`). If git is unavailable, replace both Changes sections with a
+For the markdown, inline the **full branch diff** (that is the change under
+review) but list commits as one line each (subject only) -- the diff already
+contains every change. If git is unavailable, replace both Changes sections with a
 single line "_git unavailable at render time_".
 
 ## Output
@@ -292,10 +301,12 @@ render, older renders preserved.
 - Opening the bare template directly renders a fully-styled but EMPTY dashboard
   (the unreplaced tokens fail JSON.parse -> empty states). That is expected and is
   a quick way to eyeball the CSS.
-- The "Changes" panel is the in-browser review surface: the working tree and each
-  commit expand to a colorized diff on click. It is for reading the change, not
-  editing it -- no IDE needed. Clicking a feature card/timeline block focuses that
-  feature and dims commits not linked to it (by recorded `commit` SHA).
+- The "Changes" panel is the in-browser review surface: the FULL branch diff
+  (this branch vs base, uncommitted included), one file per section, **expanded by
+  default** with line numbers, a file overview to jump, and a collapse-all toggle.
+  It shows your work whether or not you've committed it -- no IDE needed. The
+  commit list below it is context only. Clicking a feature card/timeline block
+  focuses that feature and dims commits not linked to it (by recorded `commit` SHA).
 - Filenames are timestamped, so renders accumulate under `.claude/`. To find the
   newest, sort by name (the `{TS}` format sorts lexically = chronologically) or
   glob `dashboard-*.html` / `dashboard-*.md`. The newest `.html` and `.md` with
