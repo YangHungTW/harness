@@ -19,10 +19,11 @@
     "commit":  string | null
   }
 
-  The dashboard skill REPLACES the contents of the
-  <script type="application/json" id="ledger-data"> block with a JSON ARRAY
-  of these records (not JSONL). The mock data below is just so this file
-  previews correctly when opened directly.
+  The dashboard skill copies this template verbatim, then replaces the
+  __LEDGER_DATA__ token (in the <script id="ledger-data"> block) with a JSON
+  ARRAY of these records (not JSONL), the __GIT_DATA__ token with the git
+  side-channel object, and __GENERATED_AT__ with the render time. Tokens left
+  unreplaced degrade to empty states -- the page is always fully styled.
 -->
 <style>
   :root {
@@ -487,24 +488,13 @@
 <body>
 
 <!--
-  The dashboard skill overwrites the JSON below with the current repo's
-  ledger entries (as a JSON array). Schema is documented at the top of this file.
+  The dashboard skill replaces the __LEDGER_DATA__ token below with the current
+  repo's ledger entries as a JSON array (schema at the top of this file). If the
+  token is left unreplaced (e.g. opening this template directly), loadLedger()'s
+  JSON.parse fails and the page renders its empty states -- still fully styled.
 -->
 <script type="application/json" id="ledger-data">
-[
-  {"ts":"__T-13__","feature":"morpho-blue-paymaster","phase":"discovery",     "agent":"solidity-dev",   "outcome":"merged",      "files":3, "tokens":18000, "tools":{"Read":12,"Write":2,"Edit":4,"Bash":3},     "pr":"https://github.com/y/repo/pull/41","commit":"a1b2c3d"},
-  {"ts":"__T-12__","feature":"morpho-blue-paymaster","phase":"architecture",  "agent":"solidity-dev",   "outcome":"merged",      "files":5, "tokens":22500, "tools":{"Read":18,"Write":4,"Edit":9,"Bash":5},     "pr":"https://github.com/y/repo/pull/41","commit":"b2c3d4e"},
-  {"ts":"__T-11__","feature":"morpho-blue-paymaster","phase":"implementation","agent":"solidity-dev",   "outcome":"merged",      "files":7, "tokens":41000, "tools":{"Edit":22,"Bash":11,"Read":14,"Grep":6},    "pr":"https://github.com/y/repo/pull/41","commit":"c3d4e5f"},
-  {"ts":"__T-9__", "feature":"bnb-booking-refactor", "phase":"discovery",     "agent":"rails-dev",      "outcome":"abandoned",   "files":2, "tokens":9000,  "tools":{"Read":8,"Grep":4,"Bash":1},                "pr":null,"commit":null},
-  {"ts":"__T-8__", "feature":"client-x-onboarding",  "phase":"summary",       "agent":"client-manager", "outcome":"in-progress", "files":1, "tokens":4200,  "tools":{"Read":3,"Write":1},                        "pr":null,"commit":null},
-  {"ts":"__T-7__", "feature":"nas-cf-tunnel",        "phase":"implementation","agent":"devops",         "outcome":"merged",      "files":4, "tokens":14000, "tools":{"Edit":6,"Bash":12,"Read":7},               "pr":"https://github.com/y/repo/pull/12","commit":"d4e5f60"},
-  {"ts":"__T-5__", "feature":"erc4337-paymaster-v2", "phase":"architecture",  "agent":"solidity-dev",   "outcome":"in-progress", "files":6, "tokens":33500, "tools":{"Read":24,"Edit":10,"Write":3,"Bash":7},    "pr":null,"commit":"e5f6071"},
-  {"ts":"__T-4__", "feature":"bnb-pricing-engine",   "phase":"implementation","agent":"rails-dev",      "outcome":"failed",      "files":9, "tokens":47800, "tools":{"Edit":31,"Bash":18,"Read":20,"Grep":9},    "pr":"https://github.com/y/repo/pull/56","commit":"f607182"},
-  {"ts":"__T-3__", "feature":"bnb-pricing-engine",   "phase":"review",        "agent":"rails-dev",      "outcome":"in-progress", "files":2, "tokens":11200, "tools":{"Read":9,"Edit":3,"Bash":4},                "pr":"https://github.com/y/repo/pull/56","commit":"60718a2"},
-  {"ts":"__T-2__", "feature":"client-y-status",      "phase":"summary",       "agent":"client-manager", "outcome":"in-progress", "files":0, "tokens":2800,  "tools":{"Read":4},                                  "pr":null,"commit":null},
-  {"ts":"__T-1__", "feature":"nas-backup-rotation",  "phase":"discovery",     "agent":"devops",         "outcome":"in-progress", "files":3, "tokens":7400,  "tools":{"Read":6,"Bash":5,"Grep":2},                "pr":null,"commit":null},
-  {"ts":"__T-0__", "feature":"erc4337-paymaster-v2", "phase":"implementation","agent":"solidity-dev",   "outcome":"in-progress", "files":4, "tokens":19500, "tools":{"Edit":12,"Bash":8,"Read":10,"Write":2},    "pr":null,"commit":"718a293"}
-]
+__LEDGER_DATA__
 </script>
 
 <!--
@@ -519,33 +509,12 @@
     "commits": [ { "short","sha","author","date","subject",
                    "files":[ { "file","added":int,"removed":int,"patch":string } ] } ]
   }
-  Patches are unified-diff text; the page colorizes them client-side. The mock
-  below is just so this file previews when opened directly.
+  Patches are unified-diff text; the page colorizes them client-side. If the
+  __GIT_DATA__ token is left unreplaced, loadGit() falls back to {unavailable:true}
+  and the Changes panel shows a "no git data" note -- still fully styled.
 -->
 <script type="application/json" id="git-data">
-{
-  "unavailable": false,
-  "repo": "harness",
-  "branch": "feature/dashboard-git",
-  "head": "1d510cd",
-  "dirty": true,
-  "working": [
-    {"file":"plugins/yang-toolkit/skills/dashboard/templates/dashboard.html","status":"M","staged":false,
-     "patch":"@@ -458,6 +458,9 @@\n   <section class=\"panel\">\n     <h2>Feature status</h2>\n+  </section>\n+  <section class=\"panel\">\n+    <h2>Changes -- review in browser</h2>\n     <div class=\"kanban\" id=\"kanban\">"},
-    {"file":"plugins/yang-toolkit/skills/dashboard/SKILL.md","status":"M","staged":true,
-     "patch":"@@ -2,1 +2,1 @@\n-description: render an HTML artifact\n+description: render a paired HTML + markdown artifact that joins the ledger with git"}
-  ],
-  "commits": [
-    {"short":"1d510cd","sha":"1d510cd0000000000000000000000000000000a","author":"YANG","date":"__T-1__",
-     "subject":"Make command file-writes use Write/Edit, not shell redirection",
-     "files":[{"file":"README.md","added":3,"removed":1,
-       "patch":"@@ -10,3 +10,5 @@\n surrounding context line\n-old removed line\n+new added line one\n+new added line two\n unchanged trailing line"}]},
-    {"short":"a94befd","sha":"a94befd0000000000000000000000000000000b","author":"YANG","date":"__T-2__",
-     "subject":"Prefer Write tool over shell redirection for ledger/state writes",
-     "files":[{"file":"plugins/yang-toolkit/commands/feature-dev-tracked.md","added":5,"removed":0,
-       "patch":"@@ -64,0 +65,5 @@\n+## Timestamps\n+Two granularities, both UTC.\n+- filename: compact basic-ISO\n+- content: full ISO 8601\n+"}]}
-  ]
-}
+__GIT_DATA__
 </script>
 
 <div class="wrap">

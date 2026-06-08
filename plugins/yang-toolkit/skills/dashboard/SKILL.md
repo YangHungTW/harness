@@ -22,12 +22,19 @@ Call the result `<HARNESS_ROOT>`. If that command yields nothing (no git, or not
 a repo), fall back to `<HARNESS_ROOT>` = `${CLAUDE_PROJECT_DIR}`. In the main
 worktree the two are identical, so non-worktree users see no change.
 
-Read the ledger from `<HARNESS_ROOT>/.claude/ledger.jsonl`. The rendered HTML is
-a per-worktree artifact written to
-`${CLAUDE_PROJECT_DIR}/.claude/dashboard-{TS}.html`, where `{TS}` is a compact
-UTC timestamp (see "Timestamps" below). Each render is a new, timestamped
-snapshot -- previous renders are left in place, so the directory accumulates a
-history of dashboards rather than overwriting one file.
+Read the ledger from `<HARNESS_ROOT>/.claude/ledger.jsonl`. The rendered HTML/MD
+are written to **`<HARNESS_ROOT>/.claude/`** as well -- i.e. the MAIN worktree,
+NOT the current `${CLAUDE_PROJECT_DIR}`. This keeps the artifacts out of linked
+worktrees (they don't clutter a temporary worktree and don't vanish when it is
+removed), and co-locates them with the ledger they render. Output path:
+`<HARNESS_ROOT>/.claude/dashboard-{TS}.html`, where `{TS}` is a compact UTC
+timestamp (see "Timestamps" below). Each render is a new, timestamped snapshot --
+previous renders are left in place, so the directory accumulates a history of
+dashboards rather than overwriting one file.
+
+(Note: the *git side-channel* below is still collected from the CURRENT worktree
+`${CLAUDE_PROJECT_DIR}` -- that is where your working-tree changes live. Only the
+written artifact is anchored to `<HARNESS_ROOT>`.)
 
 ## Timestamps
 Compute both with a single `date` call each, just before writing:
@@ -138,35 +145,56 @@ comment) by REPLACING the contents of the
      NEVER add stop-hook entries to outcome counts, token sums, or kanban cards
      -- doing so would double-count. If you cannot express recency in the
      template, simply drop the stop-hook entries; never fold them into stats.
-   - The JSON array you embed in step 4 is the **Rendered set** (a clean array
-     of command/source-less entries). Do not embed stop-hook entries.
-4. Read the template at
-   `${CLAUDE_PLUGIN_ROOT}/skills/dashboard/templates/dashboard.html`.
-   Find the `<script type="application/json" id="ledger-data"> ... </script>`
-   block and REPLACE the entire contents between the opening and closing tags
-   with the Rendered set serialized as a single JSON ARRAY (not JSONL). Leave
-   the rest of the template (CSS/JS/markup) byte-for-byte unchanged. Never
-   append to the template or to the existing data block -- always REPLACE the
-   block payload.
-5. Collect the git side-channel (see that section) and REPLACE the contents of
-   the `<script type="application/json" id="git-data"> ... </script>` block with
-   the assembled JSON object (or `{"unavailable": true}`). Like the ledger block:
-   REPLACE the payload, never append, and leave all other markup unchanged.
-6. REPLACE the `__GENERATED_AT__` placeholder (inside the
-   `<span id="generated-at">` footer) with the full ISO 8601 UTC content
-   timestamp from "Timestamps". This is a plain text substitution -- do not
-   touch any other markup.
-7. Compute `{TS}` ONCE for this render (`date -u +%Y%m%dT%H%M%SZ`) and write the
-   HTML to `${CLAUDE_PROJECT_DIR}/.claude/dashboard-{TS}.html` (a NEW file each
-   run; do not overwrite older snapshots).
-8. Write the **markdown companion** to
-   `${CLAUDE_PROJECT_DIR}/.claude/dashboard-{TS}.md`, reusing the SAME `{TS}` and
-   the SAME content timestamp and the SAME Rendered set from steps 3-5 (see
-   "Two views, one source" and the markdown layout below). The shared `{TS}`
-   makes the `.html` and `.md` a guaranteed pair.
-9. Tell the user both paths, and offer to open the HTML -- on macOS run
-   `open "${CLAUDE_PROJECT_DIR}/.claude/dashboard-{TS}.html"` with the same
-   `{TS}`.
+   - The JSON array you inject (the ledger Edit below) is the **Rendered set** (a
+     clean array of command/source-less entries). Do not embed stop-hook entries.
+4. Compute `{TS}` ONCE (`date -u +%Y%m%dT%H%M%SZ`). **COPY the template
+   verbatim** to the output path with a shell `cp` -- do NOT Read the template and
+   Write it back, because reproducing the ~1100-line file by hand drops the
+   `<style>` block and you ship an unstyled page (this is the #1 failure mode):
+
+   ```
+   cp "${CLAUDE_PLUGIN_ROOT}/skills/dashboard/templates/dashboard.html" \
+      "<HARNESS_ROOT>/.claude/dashboard-{TS}.html"
+   ```
+
+   `cp` preserves every byte (all CSS/JS/markup); you then change ONLY the data.
+   Write to `<HARNESS_ROOT>`, NOT `${CLAUDE_PROJECT_DIR}` -- the artifact is
+   anchored to the main worktree.
+5. Now make exactly **three targeted `Edit`s on the copied output file** (Read it
+   first so Edit is allowed). Each replaces one token in place; you never retype
+   the CSS/JS, so it cannot be lost. Use the surrounding tag as context so the
+   match is unique (the bare token also appears in comments).
+
+   **CRITICAL -- escape the JSON before injecting it.** Git diff patches routinely
+   contain the literal string `</script>` (you are diffing HTML/JS files), which
+   would close the data `<script>` block early and dump raw JSON onto the page. In
+   BOTH JSON payloads below, after serializing, replace every `<` (U+003C) with
+   the six-character escape `<` -- i.e. JS `json.replace(/</g, "\\u003c")`.
+   `JSON.parse` restores it, but `<\/script>` can no longer terminate the tag, and
+   `<!--` no longer opens a comment. (Optionally also escape `>` as `>`
+   and `&` as `&`, but `<` is the one that matters.)
+   - **Ledger** -- old:
+     `<script type="application/json" id="ledger-data">`⏎`__LEDGER_DATA__`⏎`</script>`
+     new: the same two tags wrapping the Rendered set as a single JSON ARRAY (not
+     JSONL).
+   - **Git** -- old:
+     `<script type="application/json" id="git-data">`⏎`__GIT_DATA__`⏎`</script>`
+     new: the same tags wrapping the git object from the side-channel section
+     (or `{"unavailable": true}`).
+   - **Generated-at** -- old: `<span id="generated-at">__GENERATED_AT__</span>`
+     new: the same span wrapping the full ISO 8601 UTC content timestamp.
+
+   Do NOT touch anything else. (If a token is somehow left unreplaced the page
+   still renders -- the loaders degrade to empty states -- but always replace all
+   three.)
+6. Write the **markdown companion** to `<HARNESS_ROOT>/.claude/dashboard-{TS}.md`
+   with the **Write** tool (it is small -- safe to Write directly), reusing the
+   SAME `{TS}`, content timestamp, and Rendered set (see "Two views, one source"
+   and the markdown layout below). The shared `{TS}` makes the `.html` and `.md` a
+   guaranteed pair.
+7. Tell the user both paths, and offer to open the HTML -- on macOS run
+   `open "<HARNESS_ROOT>/.claude/dashboard-{TS}.html"` with the resolved
+   `<HARNESS_ROOT>` and the same `{TS}`.
 
 ## Two views, one source (+ a read-only git join)
 `ledger.jsonl` is the single source of truth for the observability layer. The
@@ -243,23 +271,27 @@ interactive `.html`). If git is unavailable, replace both Changes sections with 
 single line "_git unavailable at render time_".
 
 ## Output
-- `${CLAUDE_PROJECT_DIR}/.claude/dashboard-{TS}.html` -- interactive human view
+Both written to `<HARNESS_ROOT>/.claude/` (the MAIN worktree), NOT the current
+worktree:
+- `<HARNESS_ROOT>/.claude/dashboard-{TS}.html` -- interactive human view
   (filters, focus, in-browser diff reviewer)
-- `${CLAUDE_PROJECT_DIR}/.claude/dashboard-{TS}.md`   -- review / AI view
+- `<HARNESS_ROOT>/.claude/dashboard-{TS}.md`   -- review / AI view
   (flat data + working-tree diff)
 Both share one `{TS}` and are a guaranteed pair; new timestamped snapshots per
 render, older renders preserved.
 
 ## Notes
-- The template ships with 8-12 rows of mock data (with `__T-N__` placeholder
-  timestamps) so it previews correctly before any real ledger exists. Always
-  REPLACE that block; never append.
-- The template also carries a `__GENERATED_AT__` placeholder in the footer.
-  Always substitute it with the real render time; if you forget, the raw
-  placeholder text would ship in the page.
-- The template carries a `<script ... id="git-data">` block with MOCK git data so
-  it previews standalone. Always REPLACE its payload with the real git snapshot
-  (or `{"unavailable": true}`); never leave the mock in a real render.
+- **Never reproduce the template by hand.** `cp` it, then `Edit` the three
+  tokens. Re-typing the file via Read+Write is what drops the `<style>` block and
+  ships an unstyled page -- the exact bug this skill is built to avoid.
+- The template carries NO mock data: the data blocks hold the tokens
+  `__LEDGER_DATA__` / `__GIT_DATA__`, and the footer holds `__GENERATED_AT__`.
+  Replace all three. If you forget one, the loaders degrade to empty states (the
+  page is still styled), but `__GENERATED_AT__` would show as literal text -- so
+  always replace it too.
+- Opening the bare template directly renders a fully-styled but EMPTY dashboard
+  (the unreplaced tokens fail JSON.parse -> empty states). That is expected and is
+  a quick way to eyeball the CSS.
 - The "Changes" panel is the in-browser review surface: the working tree and each
   commit expand to a colorized diff on click. It is for reading the change, not
   editing it -- no IDE needed. Clicking a feature card/timeline block focuses that

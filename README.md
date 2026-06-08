@@ -386,8 +386,8 @@ client-repo/
 |   |     |-- current-feature.txt              # in-flight feature slug (set by feature-dev-tracked / execute-plan, read by tdd-feature)  [per-worktree]
 |   |     |-- claude-md-candidates.jsonl       # pending CLAUDE.md gap proposals  [MAIN-worktree-shared]
 |   |     `-- test-parity-warned-YYYYMMDD.txt  # files we've already nudged about today  [per-worktree]
-|   |-- dashboard-{TS}.html # gitignore -- timestamped, interactive render    [per-worktree]
-|   |-- dashboard-{TS}.md   # gitignore -- flat review/AI render (paired by {TS}) [per-worktree]
+|   |-- dashboard-{TS}.html # gitignore -- timestamped, interactive render    [MAIN-worktree-shared]
+|   |-- dashboard-{TS}.md   # gitignore -- flat review/AI render (paired by {TS}) [MAIN-worktree-shared]
 |   `-- plans/<slug>-{TS}.html # gitignore -- /share-plan export (the .md is durable) [MAIN-worktree-shared]
 `-- docs/decisions/        # COMMIT this -- per-feature decision trail (stays with the feature branch -- intentionally per-worktree)
 ```
