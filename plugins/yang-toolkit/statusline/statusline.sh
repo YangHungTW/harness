@@ -67,4 +67,28 @@ if [ -z "$tokens" ] || [ "$tokens" = "0" ]; then
   tokens="-"
 fi
 
-printf '[harness] %s . %s . %sf . %st\n' "$agent" "$phase" "$files" "$tokens"
+# Git context for the CURRENT worktree: branch + uncommitted-file count. This is
+# the one part that reflects ANY work (even ad-hoc edits not tracked by a flow),
+# so the statusline shows "where am I, what's dirty" regardless of the ledger.
+# Opt out with HARNESS_STATUSLINE_NO_GIT=1.
+git_part=""
+case "${HARNESS_STATUSLINE_NO_GIT:-0}" in
+  1|true|TRUE|yes) ;;
+  *)
+    if command -v git >/dev/null 2>&1; then
+      br="$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+      if [ -n "$br" ]; then
+        # number of changed entries (porcelain = one line per path); 0 when clean.
+        dirty_n="$(git -C "$project_dir" status --porcelain 2>/dev/null | grep -c .)"
+        [ -z "$dirty_n" ] && dirty_n=0
+        if [ "$dirty_n" -gt 0 ] 2>/dev/null; then
+          git_part=" . ⎇ ${br} ●${dirty_n}"
+        else
+          git_part=" . ⎇ ${br}"
+        fi
+      fi
+    fi
+  ;;
+esac
+
+printf '[harness] %s . %s . %sf . %st%s\n' "$agent" "$phase" "$files" "$tokens" "$git_part"

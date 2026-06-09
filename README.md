@@ -95,7 +95,11 @@ hook and show up in the statusline / dashboard automatically.
 
 **Statusline** (`plugins/yang-toolkit/statusline/statusline.sh`)
 - bash 3.2 / BSD portable
-- output: `[harness] {agent} . {phase} . {files}f . {tokens}t`
+- output: `[harness] {agent} . {phase} . {files}f . {tokens}t . ⎇ {branch} ●{N}`
+- the `⎇ {branch} ●{N}` tail is the current worktree's branch + uncommitted-file
+  count -- it reflects ANY work (even ad-hoc edits not tracked by a flow), where
+  `{phase}`/`{tokens}` only light up during a tracked feature flow. The `●{N}`
+  marker is omitted when the tree is clean. Opt out with `HARNESS_STATUSLINE_NO_GIT=1`.
 - graceful degrade when files are missing
 - wired automatically as `subagentStatusLine`; to use as your main statusline,
   see "Install" below
