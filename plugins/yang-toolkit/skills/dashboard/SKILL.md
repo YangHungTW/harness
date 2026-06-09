@@ -200,9 +200,14 @@ comment) by REPLACING the contents of the
    SAME `{TS}`, content timestamp, and Rendered set (see "Two views, one source"
    and the markdown layout below). The shared `{TS}` makes the `.html` and `.md` a
    guaranteed pair.
-7. Tell the user both paths, and offer to open the HTML -- on macOS run
-   `open "<HARNESS_ROOT>/.claude/dashboard-{TS}.html"` with the resolved
-   `<HARNESS_ROOT>` and the same `{TS}`.
+7. Report with a **clickable link**, not just a path. Resolve the ABSOLUTE path
+   of the HTML and print it as a `file://` URL on its own line so the user can
+   click it open directly (terminals render `file://` URLs as clickable):
+   `file://<abs path>/.claude/dashboard-{TS}.html`
+   Then also print the `.md` path, and offer the macOS fallback
+   `open "<abs path>/.claude/dashboard-{TS}.html"` for anyone whose terminal does
+   not linkify. Get the absolute path from the resolved `<HARNESS_ROOT>` (it is
+   already absolute -- it came from `git worktree list`).
 
 ## Two views, one source (+ a read-only git join)
 `ledger.jsonl` is the single source of truth for the observability layer. The

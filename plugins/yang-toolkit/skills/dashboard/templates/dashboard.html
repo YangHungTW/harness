@@ -265,6 +265,8 @@
     border: 1px solid var(--line);
     border-radius: 6px;
     padding: 16px 18px;
+    min-width: 0;            /* grid child: allow shrinking so wide diffs scroll
+                                inside the panel instead of blowing out 1280px */
   }
   section.panel > h2 {
     margin: 0 0 14px;
@@ -511,7 +513,8 @@
   .cf-diff { overflow-x: auto; background: #0a0c10; font-size: 12px; line-height: 1.5;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
   .cf-diff.collapsed { display: none; }
-  .dl { display: grid; grid-template-columns: 46px 46px 1fr; white-space: pre; }
+  .dl { display: grid; grid-template-columns: 46px 46px 1fr; white-space: pre;
+        width: max-content; min-width: 100%; }
   .dl .lno {
     text-align: right; padding: 0 8px; color: var(--muted); opacity: 0.5;
     -webkit-user-select: none; user-select: none; border-right: 1px solid var(--line);
