@@ -8,23 +8,13 @@ You are running the **TDD-discipline** feature workflow. This is a sibling to
 `/yang-toolkit:feature-dev-tracked`; the two share the same decision-doc
 directory and ledger schema, so they're interoperable.
 
-## Harness root (worktree-aware)
+## Conventions
 
-Durable state (the ledger) must live in the MAIN git worktree so it survives
-worktree deletion and is shared across worktrees. Resolve it once:
-
-```
-git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
-```
-
-Call the result `<HARNESS_ROOT>`. If that command is empty or this is not a git
-repo, fall back to `<HARNESS_ROOT>` = `${CLAUDE_PROJECT_DIR}`. In the main
-worktree these are identical, so non-worktree users see no change.
-
-Use `<HARNESS_ROOT>` ONLY for `<HARNESS_ROOT>/.claude/ledger.jsonl`. Keep
-everything else -- `docs/decisions/...` and
-`.claude/state/current-feature.txt` -- on `${CLAUDE_PROJECT_DIR}` (decision
-docs belong with the feature branch).
+Read `${CLAUDE_PLUGIN_ROOT}/references/conventions.md` first -- it defines
+`<HARNESS_ROOT>` resolution, the ledger schema + append rule, and slug
+derivation. Use `<HARNESS_ROOT>` ONLY for the ledger; `docs/decisions/...`
+and `current-feature.txt` stay on `${CLAUDE_PROJECT_DIR}` (decision docs
+belong with the feature branch).
 
 ## The hard rule
 
@@ -166,32 +156,10 @@ if no, proceed to Step 3.
 
 ### Step 4 -- ledger append
 
-Append ONE line to `<HARNESS_ROOT>/.claude/ledger.jsonl` **via Read+Write, never
-shell redirection**: Read the current file (treat missing as empty), concatenate
-your one-line compact JSON plus a trailing `\n`, and Write the whole file back
-with the **Write** tool (it creates parent dirs). Do NOT use `echo >>`, `>`,
-`tee`, or `cd <dir> && …` -- each distinct shell string re-triggers a permission
-prompt; the Write tool does not. Schema:
-
-```
-{
-  "ts":       <ISO8601 now, UTC>,
-  "feature":  "<slug>",
-  "phase":    "summary",
-  "agent":    "<whoever ran most cycles, or 'main' if Claude main thread>",
-  "outcome":  "in-progress",
-  "files":    <distinct files touched>,
-  "tokens":   <approx, 0 if unknown>,
-  "tools":    { "<tool>": <count>, ... },
-  "cycles":   <number of completed red-green-refactor cycles>,
-  "pr":       null,
-  "commit":   null
-}
-```
-
-The `cycles` field is a TDD-only extension to the ledger schema. The dashboard
-will treat it as optional (default 0 for non-TDD features). Outcome stays in
-the controlled set `in-progress | merged | abandoned | failed`.
+Append ONE line to `<HARNESS_ROOT>/.claude/ledger.jsonl` matching the
+conventions ledger schema (`phase: "summary"`, outcome rules and Read+Write
+append rule per conventions), plus the TDD-only extension field:
+`"cycles": <number of completed red-green-refactor cycles>`.
 
 ### Step 5 -- clean up and report
 
@@ -202,6 +170,8 @@ the controlled set `in-progress | merged | abandoned | failed`.
   - cycle count
   - test count
   - that one ledger entry was appended
+  - if a PR will follow: remind them to run
+    `/yang-toolkit:ledger-append --close <slug>` after it merges.
 
 ## Edge cases
 

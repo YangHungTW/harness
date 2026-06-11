@@ -10,27 +10,13 @@ CLAUDE.md", delegate the actual content generation to the official
 `claude-md-management` plugin, and write the file ONLY after the user explicitly
 confirms.
 
-## Harness root (worktree-aware)
+## Conventions
 
-Durable harness state (the candidates queue and the ledger) lives in the **MAIN**
-git worktree so it is shared across worktrees and survives worktree deletion.
-Resolve it once:
-
-```
-git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
-```
-
-Call the result `<HARNESS_ROOT>`. If that command yields nothing (no git, or not
-a repo), fall back to `<HARNESS_ROOT>` = `${CLAUDE_PROJECT_DIR}`. In the main
-worktree the two are identical, so non-worktree users see no change.
-
-Use `<HARNESS_ROOT>` for durable state:
-- `<HARNESS_ROOT>/.claude/state/claude-md-candidates.jsonl`
-- `<HARNESS_ROOT>/.claude/ledger.jsonl`
-
-Keep `${CLAUDE_PROJECT_DIR}` for ephemeral, per-worktree state: the
+Read `${CLAUDE_PLUGIN_ROOT}/references/conventions.md` first -- it defines
+`<HARNESS_ROOT>` resolution and the durable-vs-ephemeral path split. The
+candidates queue and the ledger live under `<HARNESS_ROOT>`; the
 `.claude/logs/session-*.jsonl` recent-activity read, the written CLAUDE.md
-target, and any `docs/decisions/` reference.
+target, and any `docs/decisions/` reference stay on `${CLAUDE_PROJECT_DIR}`.
 
 ## Hard rules (read before doing anything)
 

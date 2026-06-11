@@ -13,15 +13,10 @@ It is a **point-in-time export**, not a live view. The `plan.md` stays the sourc
 of truth; the HTML is a timestamped snapshot. (Inline comments / reviewer
 round-trip are out of scope -- that needs a hosted service; this is for reading.)
 
-## Harness root (worktree-aware)
+## Conventions
 
-Resolve `<HARNESS_ROOT>` exactly as `/yang-toolkit:plan-feature` does:
-
-```
-git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
-```
-
-Fall back to `${CLAUDE_PROJECT_DIR}` if that yields nothing. Plans live at
+Resolve `<HARNESS_ROOT>` per
+`${CLAUDE_PLUGIN_ROOT}/references/conventions.md`. Plans live at
 `<HARNESS_ROOT>/.claude/plans/`.
 
 ## Inputs

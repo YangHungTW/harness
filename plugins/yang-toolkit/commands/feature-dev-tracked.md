@@ -10,36 +10,19 @@ guarantees:
 
 1. **Per-phase decision docs** under
    `${CLAUDE_PROJECT_DIR}/docs/decisions/{YYYY-MM-DD}-{slug}/0X-{phase}-{TS}.md`
-   where `{TS}` is a compact UTC timestamp (see "Timestamps" below).
+   where `{TS}` is the compact UTC filename timestamp from conventions.
 2. **One ledger record** appended to
-   `<HARNESS_ROOT>/.claude/ledger.jsonl` at the end (controlled-vocabulary
-   schema -- see below).
+   `<HARNESS_ROOT>/.claude/ledger.jsonl` at the end (conventions ledger
+   schema).
 
-## Harness root (worktree-aware)
+## Conventions
 
-Durable state (the ledger) must live in the MAIN git worktree so it survives
-worktree deletion and is shared across worktrees. Resolve it once:
-
-```
-git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
-```
-
-Call the result `<HARNESS_ROOT>`. If that command is empty or this is not a git
-repo, fall back to `<HARNESS_ROOT>` = `${CLAUDE_PROJECT_DIR}`. In the main
-worktree these are identical, so non-worktree users see no change.
-
-Use `<HARNESS_ROOT>` ONLY for `<HARNESS_ROOT>/.claude/ledger.jsonl`. Keep
-everything else -- `docs/decisions/...` and
-`.claude/state/current-feature.txt` -- on `${CLAUDE_PROJECT_DIR}` (decision
-docs belong with the feature branch).
-
-## Timestamps
-Two granularities, both UTC. Compute each with a single `date` call when you need
-it (do NOT hardcode or reuse a stale value across phases):
-- **Filename timestamp `{TS}`** -- compact basic-ISO, filesystem-safe (no colons),
-  lexically sortable: `date -u +%Y%m%dT%H%M%SZ` -> e.g. `20260605T031421Z`.
-- **Content timestamp** -- full ISO 8601 UTC for inside the doc body:
-  `date -u +%Y-%m-%dT%H:%M:%SZ` -> e.g. `2026-06-05T03:14:21Z`.
+Read `${CLAUDE_PLUGIN_ROOT}/references/conventions.md` first -- it defines
+`<HARNESS_ROOT>` resolution, the ledger schema + append rule, slug derivation,
+and the two timestamp formats (filename `{TS}` vs content). Use
+`<HARNESS_ROOT>` ONLY for the ledger; `docs/decisions/...` and
+`current-feature.txt` stay on `${CLAUDE_PROJECT_DIR}` (decision docs belong
+with the feature branch).
 
 ## Inputs
 - `$ARGUMENTS` -- a feature description in natural language. If empty, ask the
@@ -84,37 +67,9 @@ After each phase, **before** moving to the next:
 
 ### Step 3 -- ledger append (only on `summary` phase)
 At the end of `summary`, append exactly ONE line to
-`<HARNESS_ROOT>/.claude/ledger.jsonl` matching this schema:
-
-```
-{
-  "ts":      ISO8601 string,
-  "feature": "<slug>",
-  "phase":   "summary",
-  "agent":   "<the agent that did the bulk of the work, or 'unknown'>",
-  "outcome": "in-progress" | "merged" | "abandoned" | "failed",
-  "files":   <number of distinct files touched>,
-  "tokens":  <approx total tokens, 0 if unknown>,
-  "tools":   { "<tool_name>": <count>, ... },
-  "pr":      "<URL or null>",
-  "commit":  "<short SHA or null>"
-}
-```
-
-**Rules for `outcome`**:
-- Default to `in-progress`.
-- Set to `merged` only if the user confirms a PR has merged in this session.
-- Set to `abandoned` if the user explicitly stopped the feature mid-flow.
-- Set to `failed` if a phase produced an unrecoverable error and you did not
-  recover.
-- Never invent any other value.
-
-**Append via Read+Write, never shell redirection.** Read the current
-`ledger.jsonl` (treat a missing file as empty), concatenate your one-line
-compact JSON record plus a trailing `\n` onto the existing contents, and Write
-the whole file back with the **Write** tool (it creates parent directories).
-Do NOT use `echo >>`, `>`, `tee`, `printf >`, or `cd <dir> && …` -- each
-distinct shell string re-triggers a permission prompt; the Write tool does not.
+`<HARNESS_ROOT>/.claude/ledger.jsonl` matching the conventions ledger schema
+(`phase: "summary"`), following the conventions outcome rules and the
+Read+Write append rule.
 
 ### Step 4 -- report and clean up
 - Clear the current-feature pointer: Write an empty string to
@@ -126,6 +81,8 @@ distinct shell string re-triggers a permission prompt; the Write tool does not.
   - The decision directory you created.
   - That one ledger record was appended.
   - If anything was skipped or degraded, say so explicitly.
+  - If a PR will follow: remind them to run
+    `/yang-toolkit:ledger-append --close <slug>` after it merges.
 
 ## Failure modes
 - If `${CLAUDE_PROJECT_DIR}/docs/decisions/` cannot be created, abort with a

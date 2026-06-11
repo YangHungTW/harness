@@ -1,72 +1,57 @@
 ---
-description: Manually append one record to .claude/ledger.jsonl. For backfilling a missed session or correcting an automatic Stop-hook entry.
+description: Manually append one record to .claude/ledger.jsonl. For backfilling a missed session, correcting an automatic Stop-hook entry, or (--close) auto-closing a merged feature from gh PR state.
 ---
 
 # /yang-toolkit:ledger-append
 
-You are appending exactly ONE record to
-`<HARNESS_ROOT>/.claude/ledger.jsonl`.
+You are appending exactly ONE record to `<HARNESS_ROOT>/.claude/ledger.jsonl`.
 
-## Harness root (worktree-aware)
+## Conventions
 
-The ledger is durable state and must live in the MAIN git worktree so it
-survives worktree deletion and is shared across worktrees. Resolve it once:
+Read `${CLAUDE_PLUGIN_ROOT}/references/conventions.md` first -- it defines
+`<HARNESS_ROOT>` resolution, the full ledger schema, the controlled `outcome`
+vocabulary, and the Read+Write append rule. Everything below assumes it.
 
-```
-git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
-```
+## Mode 1 (default) -- manual record
 
-Call the result `<HARNESS_ROOT>`. If that command is empty or this is not a git
-repo, fall back to `<HARNESS_ROOT>` = `${CLAUDE_PROJECT_DIR}`. In the main
-worktree these are identical, so non-worktree users see no change. Use
-`<HARNESS_ROOT>` for the ledger path below.
-
-## Required fields -- ask the user before writing
-Walk the user through these. If a value is given in `$ARGUMENTS` already, use it
-without re-asking; otherwise ask:
+Walk the user through the schema's required fields. If a value is given in
+`$ARGUMENTS` already, use it without re-asking; otherwise ask:
 
 1. `feature` -- short kebab-case slug
-2. `phase` -- one of `discovery | architecture | implementation | review | summary`
-3. `outcome` -- one of `in-progress | merged | abandoned | failed`
-4. `agent` -- which agent / persona did the work (e.g. `rails-dev`,
-   `solidity-dev`, `client-manager`, `devops`, or `unknown`)
+2. `phase` -- controlled vocabulary per conventions
+3. `outcome` -- controlled vocabulary per conventions
+4. `agent` -- which agent / persona did the work (or `unknown`)
 5. `pr` -- PR URL, or "none" -> null
 6. `commit` -- short SHA, or "none" -> null
 
-**Do not invent any of these.** If the user gives an outcome outside the
-controlled list, push back: list the allowed values and ask again.
+**Do not invent any of these.** If the user gives a value outside a controlled
+list, push back: list the allowed values and ask again. Optional fields
+default per the schema (`files`/`tokens` -> 0, `tools` -> `{}`).
 
-## Optional fields -- best-effort, default if not provided
-- `files` -> 0 if unknown
-- `tokens` -> 0 if unknown
-- `tools` -> `{}` if unknown
+## Mode 2 -- `--close [<slug>]` (auto-close after PR merge)
 
-## Behavior
-1. Build the record as a single compact JSON object, schema:
-   ```
-   {
-     "ts": "<UTC ISO8601 of NOW>",
-     "feature": "...",
-     "phase": "...",
-     "agent": "...",
-     "outcome": "...",
-     "files": 0,
-     "tokens": 0,
-     "tools": {},
-     "pr": null,
-     "commit": null
-   }
-   ```
-2. Append the record **via Read+Write, never shell redirection**: Read the
-   current `<HARNESS_ROOT>/.claude/ledger.jsonl` (treat a missing file as
-   empty), concatenate your one-line compact JSON plus a trailing `\n` onto the
-   existing contents, and Write the whole file back with the **Write** tool (it
-   creates the parent directory). Do NOT use `echo >>`, `>`, `tee`, or
-   `cd <dir> && …` -- each distinct shell string re-triggers a permission
-   prompt; the Write tool does not.
-3. Print the exact line you wrote back to the user (in your reply text -- do not
-   `echo` it via Bash).
+Flips a feature's outcome to `merged` using `gh` as evidence instead of
+interrogating the user.
 
-## Confirm
-If the user types `--dry-run` in `$ARGUMENTS`, print the proposed record but
-do NOT write the file.
+1. Resolve `<slug>`: the argument; else `current-feature.txt`; else the most
+   recent ledger entry with `outcome: "in-progress"`. None found -> abort:
+   "nothing to close; pass a slug."
+2. Find the PR: prefer the `pr` URL already on that feature's latest ledger
+   entry; else `gh pr list --state merged --search "<slug>" --json url,mergeCommit,mergedAt --limit 5`
+   (also try the current branch via `gh pr view`). Show the candidate(s) and
+   confirm with the user if more than one or none is an exact match.
+3. Check merge state via `gh pr view <url> --json state,mergeCommit,mergedAt`:
+   - `MERGED` -> build the record: copy `feature` from the slug,
+     `phase: "summary"`, `outcome: "merged"`, `pr` = URL, `commit` = short
+     merge SHA, `agent: "main"`, `ts` = now.
+   - not merged -> report the actual state, do NOT write anything.
+   - `gh` unavailable / not authenticated -> fall back to Mode 1 questions
+     for `pr` + `commit`, with `outcome: merged` only on user confirmation.
+4. Append per the conventions append rule. This is a NEW corrective line;
+   never edit prior lines.
+
+## Output
+
+Print the exact line you wrote back to the user (in your reply text -- do not
+`echo` it via Bash). If `--dry-run` is in `$ARGUMENTS`, print the proposed
+record but do NOT write the file.

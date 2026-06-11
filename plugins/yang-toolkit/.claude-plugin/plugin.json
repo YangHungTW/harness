@@ -1,6 +1,6 @@
 {
   "name": "yang-toolkit",
-  "version": "0.10.5",
+  "version": "0.11.0",
   "description": "YANG personal dev toolkit: daily-ops skills (today, week, dashboard, curate-claude-md) + observability layer (statusline + hooks + ledger.jsonl) + nested CLAUDE.md gap detection. Agent routing is delegated to Claude Code itself -- install whichever agents (built-in, official, or community) suit each repo.",
   "author": {
     "name": "YANG",

@@ -10,26 +10,13 @@ delegates the actual implementation to one of the existing feature
 commands, and records the outcome. It does not write production code
 directly.
 
-## Harness root (worktree-aware)
+## Conventions
 
-Durable state (plans, fuzzy-words, ledger) must live in the MAIN git
-worktree so it survives deletion of any linked worktree and is shared
-across them. Resolve it once at the start:
-
-```
-git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
-```
-
-Call the result `<HARNESS_ROOT>`. If the command yields nothing or this
-is not a git repo, fall back to `${CLAUDE_PROJECT_DIR}`. In the main
-worktree `<HARNESS_ROOT>` equals `${CLAUDE_PROJECT_DIR}`, so non-worktree
-users see no change. Use `<HARNESS_ROOT>` for:
-
-- `<HARNESS_ROOT>/.claude/plans/...` (plan artifacts, incl. `.fuzzy-words`)
-- `<HARNESS_ROOT>/.claude/ledger.jsonl`
-
-Keep `${CLAUDE_PROJECT_DIR}` for ephemeral per-worktree state:
-`.claude/state/current-feature.txt`, logs, and `docs/decisions/`.
+Read `${CLAUDE_PLUGIN_ROOT}/references/conventions.md` first -- it defines
+`<HARNESS_ROOT>` resolution, the durable-vs-ephemeral path split, the ledger
+schema, and the Read+Write append rule. Plans (incl. `.fuzzy-words`) and the
+ledger live under `<HARNESS_ROOT>`; `current-feature.txt` stays on
+`${CLAUDE_PROJECT_DIR}`.
 
 ## Inputs
 - `$ARGUMENTS` -- empty, or any combination of:
@@ -328,13 +315,9 @@ arrives, proceed to Step 7's workflow branch.
      and any `result.scopeViolations`
    - whether any Files Touched scope-guard violations were observed
 
-4. **Append ONE record** to `<HARNESS_ROOT>/.claude/ledger.jsonl`
-   **via Read+Write, never shell redirection**: Read the current file (treat
-   missing as empty), concatenate your one-line compact JSON plus a trailing
-   `\n`, and Write the whole file back with the **Write** tool. Do NOT use
-   `echo >>`, `>`, `tee`, or `cd <dir> && …` -- each distinct shell string
-   re-triggers a permission prompt; the Write tool does not. The record matches
-   the feature-dev-tracked schema plus these extras:
+4. **Append ONE record** to `<HARNESS_ROOT>/.claude/ledger.jsonl` per the
+   conventions append rule (Read+Write, never shell redirection). The record
+   matches the base ledger schema plus these extras:
    ```
    "plan_path":      ".claude/plans/<slug>.md",
    "goal_turns":     <int or null>,                 // null in workflow mode (no /goal loop)
@@ -344,11 +327,10 @@ arrives, proceed to Step 7's workflow branch.
    "criteria_fail":  <int>,                           // workflow mode only: result.criteria.failed
    "deps_ignored":   [<slug>, ...]   // omit field entirely if empty
    ```
-   `outcome` follows the controlled set
-   `in-progress | merged | abandoned | failed`. Plan-status `done`
-   maps to ledger `outcome: in-progress` by default (a PR isn't
-   necessarily merged yet). Promote to `merged` only on explicit
-   user confirmation in this session.
+   `outcome` follows the conventions controlled set. Plan-status `done`
+   maps to ledger `outcome: in-progress` by default (a PR isn't necessarily
+   merged yet); promote to `merged` after the merge via
+   `/yang-toolkit:ledger-append --close <slug>`.
 
 5. **Curate CLAUDE.md**: if the `/yang-toolkit:curate-claude-md`
    skill is available, invoke it so learnings get absorbed. If
@@ -364,6 +346,8 @@ arrives, proceed to Step 7's workflow branch.
    - whether the goal was achieved
    - any anomalies (deps_ignored, scope violations, status not
      changed because abandoned, etc.)
+   - if outcome is `in-progress` and a PR will follow: remind them to run
+     `/yang-toolkit:ledger-append --close <slug>` after it merges.
 
 ## --dry-run mode
 

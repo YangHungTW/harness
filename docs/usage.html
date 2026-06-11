@@ -363,10 +363,11 @@
 /push
 /create-pr
 
-<span class="cmd-comment"># After the PR is merged, flip outcome + add PR URL + commit SHA</span>
-/yang-toolkit:ledger-append
+<span class="cmd-comment"># After the PR is merged: auto-verify via gh, flip outcome to merged</span>
+/yang-toolkit:ledger-append <span class="cmd-flag">--close</span> &lt;slug&gt;
 
-<span class="cmd-comment"># Preview before writing</span>
+<span class="cmd-comment"># Manual backfill (interactive) / preview before writing</span>
+/yang-toolkit:ledger-append
 /yang-toolkit:ledger-append <span class="cmd-flag">--dry-run</span></pre>
 </section>
 
@@ -376,6 +377,7 @@
   <table>
     <thead><tr><th>Command</th><th>What it does</th></tr></thead>
     <tbody>
+      <tr><td><code>/yang-toolkit:status</code></td><td>One-screen overview: in-flight feature, plan statuses, ledger tail, plus one next-step suggestion. <code>--abandon</code> closes out an in-flight feature in one confirmed step.</td></tr>
       <tr><td><code>/yang-toolkit:today</code></td><td>Daily digest aggregating external surfaces (GitHub/Jira/Slack) + every tracked repo's recent ledger entries.</td></tr>
       <tr><td><code>/yang-toolkit:week</code></td><td>Cross-repo weekly report from <code>~/.config/harness/repos.json</code>.</td></tr>
       <tr><td><code>/yang-toolkit:dashboard</code></td><td>Render <code>.claude/ledger.jsonl</code> + live git into a timestamped pair: an interactive <code>dashboard-&lt;TS&gt;.html</code> (timeline + kanban + stats, with outcome filters, feature-focus, and an <strong>in-browser git diff reviewer</strong>) and a flat <code>dashboard-&lt;TS&gt;.md</code> for review/AI.</td></tr>

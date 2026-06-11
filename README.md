@@ -58,10 +58,20 @@ hook and show up in the statusline / dashboard automatically.
 - `/yang-toolkit:tdd-feature` -- TDD-discipline sibling. Can continue from a
   paused `feature-dev-tracked` session (via `.claude/state/current-feature.txt`)
   or start fresh. Enforces red -> green -> refactor cycles, logs each cycle.
-- `/yang-toolkit:ledger-append` -- manually backfill or correct ledger entries
+- `/yang-toolkit:status` -- one-screen overview of in-flight work (current
+  feature, plan statuses, ledger tail) + a single next-step suggestion;
+  `--abandon` closes out an in-flight feature in one confirmed step
+- `/yang-toolkit:ledger-append` -- manually backfill or correct ledger entries;
+  `--close <slug>` auto-flips a feature to `merged` using `gh` PR state
 - `/yang-toolkit:claude-md-gaps` -- review nested-folder CLAUDE.md gap candidates,
   delegate generation to the official `claude-md-management` plugin, gated on
   user confirmation (see "Nested CLAUDE.md gap detection" below)
+
+**References** (`plugins/yang-toolkit/references/`)
+- `conventions.md` -- single canonical copy of the cross-command conventions:
+  `<HARNESS_ROOT>` resolution, durable-vs-ephemeral path split, ledger schema +
+  outcome rules + append rule, slug derivation, timestamp formats. Commands
+  read it at start instead of repeating these blocks.
 
 **Workflows** (`plugins/yang-toolkit/workflows/`)
 - `execute-plan-team.workflow.js` -- deterministic parallel fan-out for
@@ -191,16 +201,17 @@ TDD discipline matters:
 | 6. Commit | `/commit` | `commit-commands` plugin -- generates message from diff and commits. |
 | 7. Push | `/push` | Push current branch. |
 | 8. Open PR | `/create-pr` | Open a PR with a description derived from commits. |
-| 9. After PR merges | `/yang-toolkit:ledger-append` | Update the session's ledger entry: flip outcome to `merged`, add PR URL + commit SHA. |
+| 9. After PR merges | `/yang-toolkit:ledger-append --close <slug>` | Auto-close the feature: verifies the merge via `gh pr view`, appends a `merged` record with PR URL + merge SHA. Falls back to interactive questions if `gh` is unavailable. |
 
 ### Anytime
 
 | Command | What it does |
 | ------- | ------------ |
+| `/yang-toolkit:status` | One-screen overview: in-flight feature, plans grouped by status, ledger tail, pending CLAUDE.md candidates, and a single next-step suggestion. `--abandon [<slug>]` closes out an in-flight feature in one confirmed step (ledger `abandoned` entry + clear pointer + plan status). |
 | `/yang-toolkit:dashboard` | Render `.claude/ledger.jsonl` + live git into a timestamped pair: interactive `dashboard-{TS}.html` (timeline + kanban + stats + filters + feature-focus + in-browser git diff review) and a flat `dashboard-{TS}.md`. |
 | `/yang-toolkit:week` | Cross-repo weekly report from `~/.config/harness/repos.json`. |
 | `/yang-toolkit:today` | Daily digest aggregating GitHub / external surfaces + every tracked repo's recent ledger entries. |
-| `/yang-toolkit:ledger-append` | Manually backfill a ledger entry you forgot to capture. |
+| `/yang-toolkit:ledger-append` | Manually backfill a ledger entry, or `--close <slug>` to auto-flip a feature to `merged` from `gh` PR state. |
 | `/yang-toolkit:curate-claude-md` | Audit + reorganize existing CLAUDE.md files (technical rules drift up, business rules drift down). |
 
 ### Concrete walk-through
@@ -247,12 +258,9 @@ $ /create-pr
 
    (later)
 
-$ /yang-toolkit:ledger-append
-   feature: cancellation-policy-ui
-   outcome: merged
-   pr: https://github.com/.../pull/123
-   commit: a1b2c3d
-   appended .claude/ledger.jsonl
+$ /yang-toolkit:ledger-append --close cancellation-policy-ui
+   gh pr view https://github.com/.../pull/123 -> MERGED (a1b2c3d)
+   appended .claude/ledger.jsonl (outcome=merged)
 ```
 
 ### Plan-first variant

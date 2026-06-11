@@ -12,26 +12,12 @@ Plans are deliberately decoupled from `docs/decisions/`: one plan can be
 executed, fail, get revised, and re-executed without polluting the
 decision-doc numbering.
 
-## Harness root (worktree-aware)
+## Conventions
 
-Durable state (plans, ledger) must live in the MAIN git worktree so it
-survives deletion of any linked worktree and is shared across worktrees.
-Resolve it once at the start:
-
-```
-git -C "${CLAUDE_PROJECT_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}'
-```
-
-Call the result `<HARNESS_ROOT>`. If that command yields nothing or this is
-not a git repo, fall back to `${CLAUDE_PROJECT_DIR}`. In the main worktree
-the two are identical, so non-worktree users see no change.
-
-Use `<HARNESS_ROOT>` for durable paths only:
-- `<HARNESS_ROOT>/.claude/plans/...`
-- `<HARNESS_ROOT>/.claude/ledger.jsonl`
-
-Keep `${CLAUDE_PROJECT_DIR}` for ephemeral / branch-local paths:
-`docs/decisions/`, logs, and `.claude/state/current-feature.txt`.
+Read `${CLAUDE_PLUGIN_ROOT}/references/conventions.md` first -- it defines
+`<HARNESS_ROOT>` resolution (worktree-aware durable-state root), the
+durable-vs-ephemeral path split, and slug derivation. This command reads/writes
+plans and the ledger under `<HARNESS_ROOT>`.
 
 ## Inputs
 - `$ARGUMENTS` -- one of:
@@ -45,10 +31,9 @@ Keep `${CLAUDE_PROJECT_DIR}` for ephemeral / branch-local paths:
     the extraction against your codebase and history).
   - `--from <slug>` (Mode B -- replan an existing plan from scratch)
   - `--revise <slug>` (Mode C -- append a revision section, preserve original)
-- Optional OVERRIDE (combine with Mode A): **`--deep`** / **`--shallow`**. You
-  almost never need these -- depth is chosen automatically (see "Assess depth"
-  below). They only force the call when you disagree with the auto-judgment:
-  `--deep` forces the full treatment, `--shallow` forces a single light pass.
+- Optional OVERRIDE (combine with Mode A): **`--deep`** / **`--shallow`** --
+  force the depth call when you disagree with the auto-judgment in "Assess
+  depth" below. Almost never needed.
 
 If `$ARGUMENTS` is empty AND no image/transcript is attached, ask the user before
 doing anything else.
@@ -60,9 +45,7 @@ Triggered when `$ARGUMENTS` is natural-language text (not `--from` or
 `--revise`).
 
 1. Derive a kebab-case `slug` from the description (or, for image / transcript
-   input, from the feature you infer from it). Use the same rule
-   `/yang-toolkit:feature-dev-tracked` uses so slugs are deterministic
-   across commands.
+   input, from the feature you infer from it) per the conventions slug rule.
 2. Check `<HARNESS_ROOT>/.claude/plans/<slug>.md`. If it exists,
    STOP and ask the user: Mode B (replan from scratch) or Mode C
    (append a revision)? Do not silently overwrite.
