@@ -1,5 +1,6 @@
 ---
 description: TDD-driven feature workflow. Either continues from an in-flight /yang-toolkit:feature-dev-tracked session, picks up an explicit slug, or starts fresh. Enforces red -> green -> refactor cycles, writes a tdd-cycles log, and finishes with the standard ledger summary.
+model: opus
 ---
 
 # /yang-toolkit:tdd-feature

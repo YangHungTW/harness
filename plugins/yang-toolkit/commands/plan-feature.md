@@ -1,5 +1,6 @@
 ---
 description: Draft a reviewable plan artifact for a feature. Runs a parallel research fan-out (codebase patterns + project history/ledger + conditional recency-grounded external research via deep-research), then plan mode, emitting .claude/plans/<slug>.md with auto-generated, typed Memory References. Does NOT execute. Hand to /yang-toolkit:execute-plan when ready.
+model: opus
 ---
 
 # /yang-toolkit:plan-feature
