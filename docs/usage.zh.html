@@ -377,7 +377,7 @@
       <tr><td><code>/yang-toolkit:status</code></td><td>一頁總覽：進行中的 feature、各 plan 狀態、ledger 尾巴，外加一條下一步建議。<code>--abandon</code> 一步收掉進行中的 feature（ledger + state + plan 三處一次處理）。</td></tr>
       <tr><td><code>/yang-toolkit:today</code></td><td>當日摘要：聚合 GitHub / Jira / Slack 等外部 surface + 所有追蹤 repo 的最近 ledger entries。</td></tr>
       <tr><td><code>/yang-toolkit:week</code></td><td>跨 repo 週報，來源是 <code>~/.config/harness/repos.json</code>。</td></tr>
-      <tr><td><code>/yang-toolkit:dashboard</code></td><td>把 <code>.claude/ledger.jsonl</code> + 即時 git 渲成一組有時間戳的成對檔：互動式 <code>dashboard-&lt;TS&gt;.html</code>（timeline + kanban + stats，含 outcome 篩選、feature focus、與<strong>瀏覽器內的 git diff 檢視</strong>）以及給 review/AI 用的純文字 <code>dashboard-&lt;TS&gt;.md</code>。</td></tr>
+      <tr><td><code>/yang-toolkit:dashboard</code></td><td>把 <code>.claude/ledger.jsonl</code> + 即時 git 渲成一組有時間戳的成對檔：互動式 <code>dashboard-&lt;TS&gt;.html</code>（timeline + kanban + stats + <strong>loop economics</strong>〔接受率 &amp; 每個被接受變更的成本〕，含 outcome 篩選、feature focus、與<strong>瀏覽器內的 git diff 檢視</strong>）以及給 review/AI 用的純文字 <code>dashboard-&lt;TS&gt;.md</code>。</td></tr>
       <tr><td><code>/yang-toolkit:share-plan &lt;slug&gt;</code></td><td>把計畫（或任何 plan 形狀的 markdown）渲成乾淨、自包含、可分享的 HTML，輸出在 <code>.claude/plans/&lt;slug&gt;-&lt;TS&gt;.html</code>。唯讀快照。</td></tr>
       <tr><td><code>/yang-toolkit:claude-md-gaps</code></td><td>檢視被動 hook 累積的 nested <code>CLAUDE.md</code> 候選。要 user accept 才會真的寫檔。</td></tr>
       <tr><td><code>/yang-toolkit:curate-claude-md</code></td><td>稽核並重整既有 <code>CLAUDE.md</code>（技術規則往上漂、業務規則往下沉）。</td></tr>
