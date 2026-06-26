@@ -25,9 +25,9 @@ hook and show up in the statusline / dashboard automatically.
 - `today` -- daily digest across GitHub / Jira / Slack / per-repo ledgers
 - `week` -- cross-repo weekly report from `~/.config/harness/repos.json`
 - `dashboard` -- render the ledger + live git into a paired, timestamped artifact:
-  an interactive HTML (timeline + kanban + stats, with outcome filters,
-  feature-focus, and an in-browser git diff reviewer) plus a flat markdown view
-  for review/AI
+  an interactive HTML (timeline + kanban + stats + loop economics [accept rate
+  + cost-per-accepted-change], with outcome filters, feature-focus, and an
+  in-browser git diff reviewer) plus a flat markdown view for review/AI
 - `curate-claude-md` -- audit + (re)generate nested `CLAUDE.md`
 
 **Commands** (`plugins/yang-toolkit/commands/`)
@@ -208,7 +208,7 @@ TDD discipline matters:
 | Command | What it does |
 | ------- | ------------ |
 | `/yang-toolkit:status` | One-screen overview: in-flight feature, plans grouped by status, ledger tail, pending CLAUDE.md candidates, and a single next-step suggestion. `--abandon [<slug>]` closes out an in-flight feature in one confirmed step (ledger `abandoned` entry + clear pointer + plan status). |
-| `/yang-toolkit:dashboard` | Render `.claude/ledger.jsonl` + live git into a timestamped pair: interactive `dashboard-{TS}.html` (timeline + kanban + stats + filters + feature-focus + in-browser git diff review) and a flat `dashboard-{TS}.md`. |
+| `/yang-toolkit:dashboard` | Render `.claude/ledger.jsonl` + live git into a timestamped pair: interactive `dashboard-{TS}.html` (timeline + kanban + stats + loop economics [accept rate / cost-per-accepted-change] + filters + feature-focus + in-browser git diff review) and a flat `dashboard-{TS}.md`. |
 | `/yang-toolkit:week` | Cross-repo weekly report from `~/.config/harness/repos.json`. |
 | `/yang-toolkit:today` | Daily digest aggregating GitHub / external surfaces + every tracked repo's recent ledger entries. |
 | `/yang-toolkit:ledger-append` | Manually backfill a ledger entry, or `--close <slug>` to auto-flip a feature to `merged` from `gh` PR state. |

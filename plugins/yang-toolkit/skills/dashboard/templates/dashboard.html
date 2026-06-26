@@ -107,6 +107,8 @@
     color: var(--text);
     letter-spacing: 0.02em;
   }
+  .stat .v.good { color: var(--c-merged); }
+  .stat .v.warn { color: var(--c-failed); }
   .stat .k {
     font-size: 10px;
     text-transform: uppercase;
@@ -586,6 +588,8 @@ __GIT_DATA__
       <div class="stat"><div class="v" id="stat-updated">--</div><div class="k">Last update</div></div>
       <div class="stat"><div class="v" id="stat-sessions">--</div><div class="k">Sessions this wk</div></div>
       <div class="stat"><div class="v" id="stat-tokens">--</div><div class="k">Tokens this wk</div></div>
+      <div class="stat" id="stat-accept-wrap" title="Share of decided features (merged / abandoned / failed) that merged. Below 50% means the loop is losing money."><div class="v" id="stat-accept">--</div><div class="k">Accept rate</div></div>
+      <div class="stat" id="stat-cpa-wrap" title="Total tokens across merged features divided by number of merged features -- the cost of one accepted change."><div class="v" id="stat-cpa">--</div><div class="k">Cost / accept</div></div>
     </div>
   </header>
 
@@ -709,6 +713,44 @@ __GIT_DATA__
       .replace(/"/g, "&quot;");
   }
 
+  // Loop economics (the article's core metric): aggregate per FEATURE, not per
+  // ledger row. A feature spans many phase entries; its terminal outcome is the
+  // outcome of its latest entry, and its cost is the sum of tokens across all of
+  // its entries. "Decided" = reached merged/abandoned/failed (in-progress is not
+  // yet decided). Accept rate = merged / decided. Cost-per-accept = tokens of
+  // merged features / count of merged features. tokens:0 is UNKNOWN, so it simply
+  // contributes nothing to the cost sum (and we flag if every merged feature is
+  // unknown, to avoid showing a misleading 0). All-time, not the week window --
+  // a rate over 7 days is too noisy to act on.
+  function computeEconomics(records) {
+    var byFeature = {};
+    records.forEach(function (r) {
+      var f = byFeature[r.feature] || { latest: null, tokens: 0 };
+      f.tokens += (r.tokens || 0);
+      if (!f.latest || new Date(r.ts) > new Date(f.latest.ts)) f.latest = r;
+      byFeature[r.feature] = f;
+    });
+    var decided = 0, merged = 0, mergedTokens = 0, mergedKnown = 0;
+    Object.keys(byFeature).forEach(function (k) {
+      var f = byFeature[k];
+      var o = (f.latest && f.latest.outcome) || "in-progress";
+      if (o === "merged" || o === "abandoned" || o === "failed") decided++;
+      if (o === "merged") {
+        merged++;
+        mergedTokens += f.tokens;
+        if (f.tokens > 0) mergedKnown++;
+      }
+    });
+    return {
+      decided: decided,
+      merged: merged,
+      acceptRate: decided ? merged / decided : null,
+      // average only over merged features whose token cost is known
+      costPerAccept: mergedKnown ? Math.round(mergedTokens / mergedKnown) : null,
+      costKnown: mergedKnown
+    };
+  }
+
   // ---------- 3. Render header ----------
   function renderHeader(records) {
     var path = (typeof location !== "undefined" && location.pathname) || "";
@@ -720,6 +762,8 @@ __GIT_DATA__
       document.getElementById("stat-updated").textContent  = "--";
       document.getElementById("stat-sessions").textContent = "0";
       document.getElementById("stat-tokens").textContent   = "0";
+      document.getElementById("stat-accept").textContent   = "--";
+      document.getElementById("stat-cpa").textContent      = "--";
       return;
     }
 
@@ -735,6 +779,28 @@ __GIT_DATA__
     document.getElementById("stat-sessions").textContent = String(thisWeek.length);
     var tk = thisWeek.reduce(function (s, r) { return s + (r.tokens || 0); }, 0);
     document.getElementById("stat-tokens").textContent = fmtTokens(tk);
+
+    // Loop economics -- all-time, per feature.
+    var econ = computeEconomics(records);
+    var acceptEl = document.getElementById("stat-accept");
+    var cpaEl = document.getElementById("stat-cpa");
+    acceptEl.className = "v";
+    if (econ.acceptRate === null) {
+      acceptEl.textContent = "--";
+      document.getElementById("stat-accept-wrap").title =
+        "No decided features yet (all still in-progress).";
+    } else {
+      acceptEl.textContent = Math.round(econ.acceptRate * 100) + "%";
+      acceptEl.classList.add(econ.acceptRate < 0.5 ? "warn" : "good");
+      document.getElementById("stat-accept-wrap").title =
+        econ.merged + " merged / " + econ.decided + " decided features"
+        + (econ.acceptRate < 0.5 ? " -- below 50%: the loop is losing money." : ".");
+    }
+    cpaEl.textContent = econ.costPerAccept === null ? "--" : fmtTokens(econ.costPerAccept);
+    document.getElementById("stat-cpa-wrap").title = econ.costPerAccept === null
+      ? (econ.merged ? "Merged features exist but their token cost is unknown (tokens:0)." : "No merged features yet.")
+      : fmtTokens(econ.costPerAccept) + " tokens per accepted change, averaged over "
+        + econ.costKnown + " merged feature(s) with known cost.";
   }
 
   // ---------- 4. Timeline ----------

@@ -1,6 +1,6 @@
 ---
 name: dashboard
-description: Read the current repo's `.claude/ledger.jsonl`, join it with the live git branch diff (this branch vs its base, including uncommitted changes), and render a paired artifact -- an interactive HTML view (timeline, feature kanban, per-agent tokens, and an in-browser code-review diff) plus a markdown view for review/AI. TRIGGER on /dashboard, "最近做了什麼", "本專案進度", "dashboard", "this project status".
+description: Read the current repo's `.claude/ledger.jsonl`, join it with the live git branch diff (this branch vs its base, including uncommitted changes), and render a paired artifact -- an interactive HTML view (timeline, feature kanban, per-agent tokens, loop economics [accept rate + cost-per-accepted-change], and an in-browser code-review diff) plus a markdown view for review/AI. TRIGGER on /dashboard, "最近做了什麼", "本專案進度", "dashboard", "this project status".
 ---
 
 # dashboard
@@ -248,6 +248,8 @@ _Generated: <content timestamp, ISO 8601 UTC>._
 - Last update: <most recent ts in Rendered set>
 - Sessions this week: <count of Rendered entries in last 7d>
 - Tokens this week: <sum of tokens over those entries, or "-" if all unknown>
+- Accept rate (all-time): <merged features ÷ decided features as a %, or "-" if none decided> (<merged>/<decided>)
+- Cost per accepted change: <tokens of merged features ÷ count of merged features with known cost, fmt e.g. 120.0k, or "-" if none / all unknown>
 
 ## Timeline -- last 14 days
 - <YYYY-MM-DD>: <feature> / <phase> / <outcome> (<agent>)   [most recent first]
@@ -276,6 +278,25 @@ same bounds; "no changes vs <base>" if there is nothing to review>
 - <short> <subject>
   ...
 ```
+
+### Loop economics (Accept rate + Cost per accepted change)
+
+These two header numbers are the article's "core metric" and are computed
+**per FEATURE, all-time** (not per ledger row, not the week window -- a rate over
+7 days is too noisy to act on). The HTML computes them in `computeEconomics()`;
+the markdown must match exactly:
+
+- Group the Rendered set by `feature`. A feature's **terminal outcome** is the
+  `outcome` of its latest (`ts`) entry; its **cost** is the sum of `tokens` across
+  all of its entries.
+- **Decided** = features whose terminal outcome is `merged`, `abandoned`, or
+  `failed` (`in-progress` is not yet decided).
+- **Accept rate** = `merged` features ÷ decided features. Show `-` if nothing is
+  decided. The HTML flags it red below 50% ("the loop is losing money").
+- **Cost per accepted change** = total tokens of merged features ÷ count of merged
+  features **with known cost** (`tokens > 0`). `tokens:0` is UNKNOWN, so a merged
+  feature with no token data is excluded from the average (not counted as 0). Show
+  `-` if there are no merged features, or every merged feature's cost is unknown.
 
 Apply the same source-dedupe and `tokens:0 == unknown` rules as the HTML. Omit a
 section (or show "none") if it has no data rather than emitting an empty heading.
