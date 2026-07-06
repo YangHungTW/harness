@@ -58,6 +58,12 @@ hook and show up in the statusline / dashboard automatically.
 - `/yang-toolkit:tdd-feature` -- TDD-discipline sibling. Can continue from a
   paused `feature-dev-tracked` session (via `.claude/state/current-feature.txt`)
   or start fresh. Enforces red -> green -> refactor cycles, logs each cycle.
+- `/yang-toolkit:loop` -- plan/ledger-aware in-session heartbeat: each tick
+  auto-discovers the next runnable plan, hands it to `execute-plan` behind the
+  objective acceptance-criteria gate, persists the outcome, and arms the next
+  wake-up. Propose-only by default; `--unattended` opts into auto execution;
+  `--max-tokens` is the hard budget cap (Ralph-Wiggum guard). The plan-aware
+  sibling of the generic harness `/loop` skill.
 - `/yang-toolkit:status` -- one-screen overview of in-flight work (current
   feature, plan statuses, ledger tail) + a single next-step suggestion;
   `--abandon` closes out an in-flight feature in one confirmed step
@@ -208,6 +214,7 @@ TDD discipline matters:
 | Command | What it does |
 | ------- | ------------ |
 | `/yang-toolkit:status` | One-screen overview: in-flight feature, plans grouped by status, ledger tail, pending CLAUDE.md candidates, and a single next-step suggestion. `--abandon [<slug>]` closes out an in-flight feature in one confirmed step (ledger `abandoned` entry + clear pointer + plan status). |
+| `/yang-toolkit:loop` | Plan/ledger-aware in-session heartbeat. Each tick discovers the next runnable plan (`accepted`/`draft`), runs it via `execute-plan` behind the objective acceptance-criteria gate, persists the outcome, and arms the next `ScheduleWakeup` tick. Propose-only by default; `--unattended` opts into auto execution; `--max-tokens <N>` caps total spend; `--once`/`--dry-run` for a single tick or a no-op preview. Kill switch: `Esc` or `CLAUDE_CODE_DISABLE_CRON=1`. |
 | `/yang-toolkit:dashboard` | Render `.claude/ledger.jsonl` + live git into a timestamped pair: interactive `dashboard-{TS}.html` (timeline + kanban + stats + loop economics [accept rate / cost-per-accepted-change] + filters + feature-focus + in-browser git diff review) and a flat `dashboard-{TS}.md`. |
 | `/yang-toolkit:week` | Cross-repo weekly report from `~/.config/harness/repos.json`. |
 | `/yang-toolkit:today` | Daily digest aggregating GitHub / external surfaces + every tracked repo's recent ledger entries. |
