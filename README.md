@@ -58,6 +58,12 @@ hook and show up in the statusline / dashboard automatically.
 - `/yang-toolkit:tdd-feature` -- TDD-discipline sibling. Can continue from a
   paused `feature-dev-tracked` session (via `.claude/state/current-feature.txt`)
   or start fresh. Enforces red -> green -> refactor cycles, logs each cycle.
+- `/yang-toolkit:loop` -- plan/ledger-aware in-session heartbeat: each tick
+  auto-discovers the next runnable plan, hands it to `execute-plan` behind the
+  objective acceptance-criteria gate, persists the outcome, and arms the next
+  wake-up. Propose-only by default; `--unattended` opts into auto execution;
+  `--max-tokens` is the hard budget cap (Ralph-Wiggum guard). The plan-aware
+  sibling of the generic harness `/loop` skill.
 - `/yang-toolkit:status` -- one-screen overview of in-flight work (current
   feature, plan statuses, ledger tail) + a single next-step suggestion;
   `--abandon` closes out an in-flight feature in one confirmed step
@@ -82,6 +88,19 @@ hook and show up in the statusline / dashboard automatically.
   via the built-in `Workflow` tool with the parsed plan passed as `args`
   (the script has no filesystem access; all I/O happens inside agents).
 
+**Model tiers** (cost-capability assignment via `model:` frontmatter)
+High-frequency, low-reasoning surfaces are pinned to a cheaper tier; reasoning-heavy
+commands stay on Opus; everything else inherits the session model.
+- `haiku` -- read-only aggregation/rendering: `status`, `ledger-append`,
+  `share-plan`, `dashboard`, `today`, `week`, plus the workflow's Phase-2
+  criterion **verifier** (at `effort: low`) -- keeping the checker a strictly
+  cheaper model than the implementer (maker/checker separation on cost too).
+- `opus` -- reasoning-heavy: `plan-feature`, `tdd-feature`.
+- inherit -- everything else (`execute-plan`, `feature-dev-tracked`,
+  `curate-claude-md`, `loop`, ...) runs on the session model.
+- Fable 5 is deliberately **not** pinned anywhere -- at ~2x Opus pricing it is an
+  opt-in for genuinely long unattended runs, not a default.
+
 **Hooks** (`plugins/yang-toolkit/hooks/hooks.json`)
 - `PreToolUse` -> `.claude/logs/session-{YYYYMMDD}.jsonl`
 - `PostToolUse` (Edit|Write|MultiEdit) -> two passive checks:
@@ -90,6 +109,11 @@ hook and show up in the statusline / dashboard automatically.
   - test-parity nudge: if a production-code file was edited but no test
     mirror has been touched in this session, inject a reminder into Claude's
     next-turn context (see "Test parity reminder" below)
+  - doc-parity nudge: if a command/skill definition was edited but the command
+    is missing from any doc surface (README inventory + cheat-sheet, en/zh usage
+    manuals), nudge to sync the docs. Coverage-by-name only -- never rewrites the
+    translated prose. On-demand report: `hooks/doc-parity-check.sh --report`;
+    opt-out `HARNESS_DISABLE_DOC_PARITY=1`
 - `UserPromptSubmit` -> reset `.claude/state/current-agent.txt` to `main`
   (the pointer otherwise sticks at the last subagent name after it finishes)
 - `SubagentStop` -> `.claude/state/current-agent.txt`
@@ -208,6 +232,7 @@ TDD discipline matters:
 | Command | What it does |
 | ------- | ------------ |
 | `/yang-toolkit:status` | One-screen overview: in-flight feature, plans grouped by status, ledger tail, pending CLAUDE.md candidates, and a single next-step suggestion. `--abandon [<slug>]` closes out an in-flight feature in one confirmed step (ledger `abandoned` entry + clear pointer + plan status). |
+| `/yang-toolkit:loop` | Plan/ledger-aware in-session heartbeat. Each tick discovers the next runnable plan (`accepted`/`draft`), runs it via `execute-plan` behind the objective acceptance-criteria gate, persists the outcome, and arms the next `ScheduleWakeup` tick. Propose-only by default; `--unattended` opts into auto execution; `--max-tokens <N>` caps total spend; `--once`/`--dry-run` for a single tick or a no-op preview. Kill switch: `Esc` or `CLAUDE_CODE_DISABLE_CRON=1`. |
 | `/yang-toolkit:dashboard` | Render `.claude/ledger.jsonl` + live git into a timestamped pair: interactive `dashboard-{TS}.html` (timeline + kanban + stats + loop economics [accept rate / cost-per-accepted-change] + filters + feature-focus + in-browser git diff review) and a flat `dashboard-{TS}.md`. |
 | `/yang-toolkit:week` | Cross-repo weekly report from `~/.config/harness/repos.json`. |
 | `/yang-toolkit:today` | Daily digest aggregating GitHub / external surfaces + every tracked repo's recent ledger entries. |

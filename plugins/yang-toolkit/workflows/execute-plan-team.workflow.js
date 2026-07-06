@@ -151,7 +151,11 @@ const verdicts = (
           `Run the command, observe the REAL output, and report whether the pass condition actually holds.`,
           `Do not fix or edit anything — report only. If the command cannot run, set passed=false and explain in evidence.`,
         ].join('\n'),
-        { label: `verify:${c.name}`, phase: 'Verify', schema: VERIFY_SCHEMA }
+        // Independent, cheap verifier: a criterion's Check command is mechanical
+        // (run it, observe output, report pass/fail) -- Haiku at low effort is the
+        // right tier, and keeping the verifier a cheaper model than the implementer
+        // enforces maker/checker separation on cost as well as identity.
+        { label: `verify:${c.name}`, phase: 'Verify', schema: VERIFY_SCHEMA, model: 'haiku', effort: 'low' }
       )
     )
   )

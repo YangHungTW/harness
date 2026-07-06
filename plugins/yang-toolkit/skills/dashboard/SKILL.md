@@ -1,6 +1,7 @@
 ---
 name: dashboard
 description: Read the current repo's `.claude/ledger.jsonl`, join it with the live git branch diff (this branch vs its base, including uncommitted changes), and render a paired artifact -- an interactive HTML view (timeline, feature kanban, per-agent tokens, loop economics [accept rate + cost-per-accepted-change], and an in-browser code-review diff) plus a markdown view for review/AI. TRIGGER on /dashboard, "最近做了什麼", "本專案進度", "dashboard", "this project status".
+model: haiku
 ---
 
 # dashboard

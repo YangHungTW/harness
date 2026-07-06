@@ -36,6 +36,17 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "_comment": "Doc-parity reminder: when a yang-toolkit command/skill definition is edited but the command is not listed in every doc surface (README inventory + cheat-sheet, en/zh usage manuals), nudge Claude to sync the docs. Checks coverage by name only -- never rewrites the curated/translated prose. Standalone report: hooks/doc-parity-check.sh --report. Opt-out via HARNESS_DISABLE_DOC_PARITY=1. Dedupes per (command, day).",
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/doc-parity-check.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

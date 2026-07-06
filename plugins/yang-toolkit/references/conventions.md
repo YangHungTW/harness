@@ -22,7 +22,9 @@ two are identical, so non-worktree users see no change.
 `.claude/ledger.jsonl`, `.claude/state/claude-md-candidates.jsonl`.
 
 **Ephemeral / branch-local** (always `${CLAUDE_PROJECT_DIR}`):
-`docs/decisions/`, `.claude/logs/`, `.claude/state/current-feature.txt`.
+`docs/decisions/`, `.claude/logs/`, `.claude/state/current-feature.txt`,
+`.claude/state/loop-state.json` (`/yang-toolkit:loop` heartbeat budget/iteration
+state -- tied to one working session, so branch-local, not durable).
 
 ## Ledger schema
 

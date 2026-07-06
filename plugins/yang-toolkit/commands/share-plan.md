@@ -1,5 +1,6 @@
 ---
 description: Render a plan.md (or any plan-shaped markdown) into a clean, self-contained, shareable HTML document for a non-terminal colleague to read. Read-only snapshot; does NOT modify the plan. Pairs with /yang-toolkit:plan-feature.
+model: haiku
 ---
 
 # /yang-toolkit:share-plan

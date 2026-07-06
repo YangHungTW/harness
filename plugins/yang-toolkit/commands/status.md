@@ -1,5 +1,6 @@
 ---
 description: One-screen overview of in-flight work -- current feature, plan statuses, recent ledger tail. --abandon closes out an in-flight feature in one step (state + ledger + plan).
+model: haiku
 ---
 
 # /yang-toolkit:status

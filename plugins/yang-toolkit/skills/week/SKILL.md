@@ -1,6 +1,7 @@
 ---
 name: week
 description: Cross-repo weekly report. Scans every harness-tracked client repo's `.claude/ledger.jsonl`, produces a markdown weekly recap grouped by client AND by feature. TRIGGER on /week, "週報", "weekly report".
+model: haiku
 ---
 
 # week
