@@ -1,5 +1,6 @@
 ---
 description: Manually append one record to .claude/ledger.jsonl. For backfilling a missed session, correcting an automatic Stop-hook entry, or (--close) auto-closing a merged feature from gh PR state.
+model: haiku
 ---
 
 # /yang-toolkit:ledger-append

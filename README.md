@@ -88,6 +88,19 @@ hook and show up in the statusline / dashboard automatically.
   via the built-in `Workflow` tool with the parsed plan passed as `args`
   (the script has no filesystem access; all I/O happens inside agents).
 
+**Model tiers** (cost-capability assignment via `model:` frontmatter)
+High-frequency, low-reasoning surfaces are pinned to a cheaper tier; reasoning-heavy
+commands stay on Opus; everything else inherits the session model.
+- `haiku` -- read-only aggregation/rendering: `status`, `ledger-append`,
+  `share-plan`, `dashboard`, `today`, `week`, plus the workflow's Phase-2
+  criterion **verifier** (at `effort: low`) -- keeping the checker a strictly
+  cheaper model than the implementer (maker/checker separation on cost too).
+- `opus` -- reasoning-heavy: `plan-feature`, `tdd-feature`.
+- inherit -- everything else (`execute-plan`, `feature-dev-tracked`,
+  `curate-claude-md`, `loop`, ...) runs on the session model.
+- Fable 5 is deliberately **not** pinned anywhere -- at ~2x Opus pricing it is an
+  opt-in for genuinely long unattended runs, not a default.
+
 **Hooks** (`plugins/yang-toolkit/hooks/hooks.json`)
 - `PreToolUse` -> `.claude/logs/session-{YYYYMMDD}.jsonl`
 - `PostToolUse` (Edit|Write|MultiEdit) -> two passive checks:

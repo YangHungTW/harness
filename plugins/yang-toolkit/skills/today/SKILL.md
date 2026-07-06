@@ -1,6 +1,7 @@
 ---
 name: today
 description: Aggregate today's work surface across sources -- GitHub PRs/notifications, each tracked client repo's `.claude/ledger.jsonl`, and any optional config-gated issue/Slack sources. TRIGGER on /today, "today", "今日", "morning brief", "每日簡報", or a standalone greeting when no other task is present.
+model: haiku
 ---
 
 # today
