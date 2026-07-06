@@ -96,6 +96,11 @@ hook and show up in the statusline / dashboard automatically.
   - test-parity nudge: if a production-code file was edited but no test
     mirror has been touched in this session, inject a reminder into Claude's
     next-turn context (see "Test parity reminder" below)
+  - doc-parity nudge: if a command/skill definition was edited but the command
+    is missing from any doc surface (README inventory + cheat-sheet, en/zh usage
+    manuals), nudge to sync the docs. Coverage-by-name only -- never rewrites the
+    translated prose. On-demand report: `hooks/doc-parity-check.sh --report`;
+    opt-out `HARNESS_DISABLE_DOC_PARITY=1`
 - `UserPromptSubmit` -> reset `.claude/state/current-agent.txt` to `main`
   (the pointer otherwise sticks at the last subagent name after it finishes)
 - `SubagentStop` -> `.claude/state/current-agent.txt`
