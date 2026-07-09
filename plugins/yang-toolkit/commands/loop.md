@@ -89,8 +89,9 @@ not arm another wake-up to spin on an empty queue.
 ## Step 3 -- Execute behind the objective gate
 
 Hand the selected plan to `/yang-toolkit:execute-plan --from <slug>` (in
-`--unattended` mode, `... --from <slug> --auto`, so execute-plan's own `/goal`
-loop runs without per-turn prompts). The completion test is that plan's
+`--unattended` mode, `... --from <slug> --auto --yes`, so execute-plan's own
+`/goal` loop runs without per-turn prompts and its confirm-and-proceed
+prompts auto-resolve). The completion test is that plan's
 **acceptance criteria**: each criterion's `Check` command is run and its `Pass`
 condition observed. The gate is these Check commands -- **not LLM self-grading**.
 An agent (this loop included) declaring "done" in prose is never the gate; a
@@ -98,13 +99,18 @@ green Check command is. This is the Ralph-Wiggum / silent-failure guard at the
 correctness layer: without an objective, runnable pass condition a loop will
 happily announce success and keep burning tokens on nothing.
 
-**Known seam (v1).** execute-plan's own Step 3 asks you to confirm the assembled
-`/goal` condition before it runs, and that confirmation is interactive even
+**Seam closed via `--yes`.** execute-plan's Step 3 normally asks you to confirm
+the assembled `/goal` condition, and that confirmation is interactive even
 under `--auto` (auto mode removes per-tool prompts, not this deliberate
-guardrail). So a `--unattended` tick still pauses once per plan at that single
-confirm. Closing it fully needs a non-interactive flag on execute-plan (e.g. a
-future `--yes`) that does not exist yet; until then, "unattended" means "no
-per-turn / per-tool prompts", not "zero prompts". Documented rather than faked.
+guardrail). Passing `--yes` skips it non-interactively: the guardrail moves
+upstream to the plan's `accepted` status (unattended only ever runs `accepted`
+plans, which a human already reviewed) and to `permissions.deny` as the hard
+floor. Genuine decisions still fail safe under `--yes` -- an `executing` plan
+resumes, a `failed` plan or an un-enableable auto mode aborts the tick (see
+execute-plan's "--yes resolution table"). A `--yes` abort counts as a `failed`
+tick outcome recorded in loop-state; if the abort is environmental (auto mode
+cannot be enabled) it would recur on every tick, so stop the loop entirely
+rather than arming the next wake-up.
 
 In propose-only mode (the default) this step stops before mutating anything --
 see below.

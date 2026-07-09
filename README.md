@@ -52,7 +52,8 @@ hook and show up in the statusline / dashboard automatically.
   parallel fan-out via the built-in `Workflow` tool — see
   `workflows/execute-plan-team.workflow.js`), or `team` (experimental
   agent-teams). `--dry-run` shows the assembled /goal (or the workflow
-  args + partition map) without executing.
+  args + partition map) without executing. `--auto --yes` makes a run fully
+  non-interactive (used by `/yang-toolkit:loop --unattended`).
 - `/yang-toolkit:feature-dev-tracked` -- wraps `/feature-dev`, writes per-phase
   decision docs + one ledger summary
 - `/yang-toolkit:tdd-feature` -- TDD-discipline sibling. Can continue from a
@@ -214,7 +215,7 @@ TDD discipline matters:
 | Step | Command | What it does |
 | ---- | ------- | ------------ |
 | 0p. Plan (optional pre-stage) | `/yang-toolkit:plan-feature "<description>"` | Runs a parallel research fan-out (codebase patterns + ledger/prior-plans/decision history + conditional recency-grounded external research), then plan mode, writes `.claude/plans/<slug>.md`. Auto-suggests `depends_on` for related unfinished features. Review the file, edit if needed. Then `/yang-toolkit:share-plan <slug>` for a shareable HTML doc. |
-| 0x. Execute the plan | `/yang-toolkit:execute-plan` (or `--from <slug>`, `--dry-run`, `--single` / `--team` / `--workflow`, `--auto` overrides) | Parses + validates the plan, then runs it one of three ways per the plan's `orchestration`: **single** (sequential `/goal` loop → `tdd-feature` / `feature-dev-tracked`), **workflow** (deterministic parallel fan-out via the built-in `Workflow` tool — partitions Files Touched into disjoint slices, implements them concurrently, then verifies each Acceptance Criterion), or **team** (experimental agent-teams). With `--auto` the `single`/`team` `/goal` loop runs unattended. Updates plan status + appends ledger at the end. |
+| 0x. Execute the plan | `/yang-toolkit:execute-plan` (or `--from <slug>`, `--dry-run`, `--single` / `--team` / `--workflow`, `--auto`, `--yes` overrides) | Parses + validates the plan, then runs it one of three ways per the plan's `orchestration`: **single** (sequential `/goal` loop → `tdd-feature` / `feature-dev-tracked`), **workflow** (deterministic parallel fan-out via the built-in `Workflow` tool — partitions Files Touched into disjoint slices, implements them concurrently, then verifies each Acceptance Criterion), or **team** (experimental agent-teams). With `--auto` the `single`/`team` `/goal` loop runs unattended; `--yes` additionally skips the confirm-and-proceed prompts (genuine decisions fail safe — see the command's `--yes` resolution table). Updates plan status + appends ledger at the end. |
 | 0a. Start (regular flow, no plan stage) | `/yang-toolkit:feature-dev-tracked "<one-line description>"` | Wraps `/feature-dev`. Drives discovery -> architecture -> implementation -> review -> summary; writes one decision doc per phase under `docs/decisions/{date}-{slug}/`; appends a ledger summary at the end. |
 | 0b. Start (TDD flow, no plan stage) | `/yang-toolkit:tdd-feature "<description>"` OR `/yang-toolkit:tdd-feature` (continues from a paused feature-dev-tracked) | Enforces red -> green -> refactor per test case; writes a `02b-test-plan.md` then a `03-tdd-cycles.md` log; shares the same decision dir and ledger schema as feature-dev-tracked. Adds a `cycles` field to the ledger entry. |
 | 1. (during discovery, auto) | -- | `code-explorer` agent (ships with `feature-dev`) traces the codebase. No command needed. |

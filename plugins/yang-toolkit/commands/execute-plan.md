@@ -23,9 +23,33 @@ ledger live under `<HARNESS_ROOT>`; `current-feature.txt` stays on
   - `--from <slug>` -- explicit plan to run
   - `--single` / `--team` / `--workflow` -- override `orchestration` from frontmatter
   - `--auto` -- enter auto mode for the duration of this run so the `/goal` loop runs unattended (otherwise each turn still pauses for tool approval)
+  - `--yes` -- non-interactive: skip the confirm-and-proceed prompts (the
+    Step 3 `/goal`-condition confirm, and Mode A's single-match confirm).
+    Prompts that are genuine decisions are NOT skipped -- they resolve to a
+    documented safe default or abort (see "--yes resolution table"). Intended
+    for callers like `/yang-toolkit:loop --unattended`; combine with `--auto`
+    for fully unattended execution.
   - `--no-goal` -- skip `/goal` setup (user wants manual turn-by-turn control)
   - `--ignore-deps` -- proceed even if `depends_on` items aren't `done`
   - `--dry-run` -- print parsed plan + assembled /goal + delegate target, do NOT execute
+
+### --yes resolution table
+
+`--yes` never invents a choice. Confirm-and-proceed prompts are skipped;
+prompts that pick between materially different outcomes resolve as follows
+(fail safe -- when in doubt, abort with a message rather than guess):
+
+| Interactive point                                        | Without `--yes`              | With `--yes`                                          |
+| -------------------------------------------------------- | ---------------------------- | ----------------------------------------------------- |
+| Step 3: confirm assembled `/goal` condition              | ask, then proceed            | print the condition, proceed                          |
+| Mode A: exactly one runnable plan found                  | confirm, then use it         | use it                                                |
+| Mode A: multiple runnable plans found                    | show list, ask which         | abort: "multiple candidates; pass `--from <slug>`"    |
+| Status gate: plan is `executing`                         | ask resume / reset / abort   | resume (keep `started_at`, re-issue `/goal`)          |
+| Status gate: plan is `failed`                            | ask re-run / revise          | abort: "plan previously failed; re-run or revise interactively" |
+| `--auto` passed but auto mode cannot be enabled          | warn, print steps, wait      | abort (do NOT proceed half-attended)                  |
+
+Every `--yes` auto-resolution is recorded in the Execution Log so an
+unattended run stays auditable.
 
 ## Two entry modes
 
@@ -36,8 +60,9 @@ Triggered when no `--from` flag is given.
    non-empty, set `slug` from it.
 2. Otherwise list `<HARNESS_ROOT>/.claude/plans/*.md`, filter to
    `status: draft` or `status: accepted`, sort by mtime descending.
-   - exactly one match -> confirm with the user, then use it
-   - multiple -> show the list, ask which
+   - exactly one match -> confirm with the user, then use it (`--yes`:
+     skip the confirm)
+   - multiple -> show the list, ask which (`--yes`: abort, require `--from`)
    - none -> abort with "no plan to execute; run /yang-toolkit:plan-feature first."
 
 ### Mode B -- explicit
@@ -62,10 +87,11 @@ Parse the frontmatter and the sections. Required:
 ### Status gate
 - `draft` or `accepted` -> proceed
 - `executing` -> ask the user: **resume** (keep `started_at`, re-issue
-  `/goal`) / **reset** to draft / **abort**
+  `/goal`) / **reset** to draft / **abort**. `--yes`: resume.
 - `done` -> REFUSE. Tell user: "use `/yang-toolkit:plan-feature --revise <slug>`
   to open a new revision."
-- `failed` -> ask: re-run as-is, or revise first?
+- `failed` -> ask: re-run as-is, or revise first? `--yes`: abort (a failed
+  plan needs a human look before an unattended re-run).
 
 ### Acceptance Criteria parsing
 
@@ -148,7 +174,10 @@ Rules:
   linked via `depends_on`.
 
 Print the assembled condition. **Ask the user to confirm** before
-proceeding -- this is the autopilot guardrail.
+proceeding -- this is the autopilot guardrail. With `--yes`, print the
+condition but skip the confirm and proceed: the guardrail moves upstream
+to the plan's `accepted` status (a human reviewed the criteria when
+accepting the plan) and to `permissions.deny` as the hard floor.
 
 ### Auto mode (only if `--auto` is passed)
 
@@ -156,12 +185,13 @@ proceeding -- this is the autopilot guardrail.
 prompts. Either alone is half-automated; together they produce
 unattended execution.
 
-After the user confirms the /goal condition AND before issuing
-`/goal`, attempt to enter auto mode for the session. The exact
-mechanism is Claude-Code-version-specific (typically a `/auto` slash
-command or an equivalent in-session toggle). If you cannot enable it
-programmatically, prompt the user with the steps to enable it and
-wait for confirmation before continuing.
+After the /goal condition is confirmed (or auto-confirmed via `--yes`)
+AND before issuing `/goal`, attempt to enter auto mode for the session.
+The exact mechanism is Claude-Code-version-specific (typically a `/auto`
+slash command or an equivalent in-session toggle). If you cannot enable
+it programmatically, prompt the user with the steps to enable it and
+wait for confirmation before continuing (`--yes`: abort instead of
+waiting -- never proceed half-attended).
 
 If `--auto` was NOT passed, print this one-line note and proceed:
 
@@ -382,7 +412,7 @@ touch the ledger.
 | Assembled `/goal` condition exceeds 4000 characters                                | Abort. Suggest shrinking criteria or splitting the plan into pieces linked via `depends_on`.                                                      |
 | Files Touched scope violated during execution (only detectable if a hook is wired) | Continue, but record the violation in Execution Log. Scope-guard hooks are opt-in; absent hooks make this best-effort.                            |
 | `/yang-toolkit:curate-claude-md` not installed                                     | Skip step 7.5; mention in final report. Do not abort.                                                                                             |
-| `--auto` passed but auto mode cannot be enabled in this Claude Code version        | Warn, print manual enable steps, wait for user confirmation. Do NOT proceed silently as if auto mode were active.                                |
+| `--auto` passed but auto mode cannot be enabled in this Claude Code version        | Warn, print manual enable steps, wait for user confirmation. Do NOT proceed silently as if auto mode were active. With `--yes`, abort instead of waiting. |
 
 ## Failure modes
 
