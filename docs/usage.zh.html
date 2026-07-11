@@ -205,7 +205,7 @@
   <div class="hdr-title">
     harness <span class="slash">//</span> <span class="what">使用說明</span>
   </div>
-  <span class="badge">yang-toolkit v0.10.1</span>
+  <span class="badge">yang-toolkit v0.14.0</span>
   <span class="badge">2026-06-07</span>
   <span class="badge" style="margin-left:auto;"><a href="usage.html">EN</a> · <b style="color:var(--text);">中文</b></span>
 </header>
@@ -315,6 +315,7 @@
       <tr><td><code>--from &lt;slug&gt;</code></td><td>指定執行某個 plan，不要拿最新的 draft。</td></tr>
       <tr><td><code>--single</code> / <code>--workflow</code> / <code>--team</code></td><td>本次蓋掉 plan 內的 <code>orchestration</code>。</td></tr>
       <tr><td><code>--auto</code></td><td>本次進入 auto mode，讓 <code>/goal</code> 迴圈（single/team）或 workflow 的 agent 無人值守。沒加的話每輪還是會停下等 tool approval — <code>/goal</code> 只負責省掉 per-turn 確認。</td></tr>
+      <tr><td><code>--yes</code></td><td>非互動：跳過「確認後繼續」類的提示（Step 3 的 <code>/goal</code> 條件確認、單一 match 的確認）。真正的決策走安全預設 — <code>executing</code> 自動 resume、<code>failed</code> 或 <code>--auto</code> 開不起來則 abort。搭配 <code>--auto</code> 就是完全無人值守；<code>loop --unattended</code> 內部就用這組。</td></tr>
       <tr><td><code>--no-goal</code></td><td>不設 <code>/goal</code>，由你自己 step through。</td></tr>
       <tr><td><code>--ignore-deps</code></td><td>強制執行，即使 <code>depends_on</code> 還沒 <code>done</code>（會記在 ledger）。</td></tr>
       <tr><td><code>--dry-run</code></td><td>解析 + 顯示 /goal + 委派目標（single/team）或 workflow args + 分割預覽（workflow）；不執行。</td></tr>
@@ -375,7 +376,7 @@
     <thead><tr><th>指令</th><th>用途</th></tr></thead>
     <tbody>
       <tr><td><code>/yang-toolkit:status</code></td><td>一頁總覽：進行中的 feature、各 plan 狀態、ledger 尾巴，外加一條下一步建議。<code>--abandon</code> 一步收掉進行中的 feature（ledger + state + plan 三處一次處理）。</td></tr>
-      <tr><td><code>/yang-toolkit:loop</code></td><td>plan/ledger 感知的 in-session 心跳：每個 tick 找出下一個可執行的 plan（<code>accepted</code>/<code>draft</code>），交給 <code>execute-plan</code> 在客觀驗收條件閘後執行，記錄結果，再排下一個 <code>ScheduleWakeup</code> tick。<strong>預設 propose-only + 單次</strong>；<code>--unattended</code> 才進入自動執行 + 循環心跳（只跑 <code>accepted</code>，並以 <code>permissions.deny</code> 為硬底線）；<code>--max-tokens &lt;N&gt;</code> 設總花費上限（Ralph-Wiggum 防呆）。停止：<code>Esc</code> 或 <code>CLAUDE_CODE_DISABLE_CRON=1</code>。是內建 <code>/loop</code> skill 的 plan 感知版。</td></tr>
+      <tr><td><code>/yang-toolkit:loop</code></td><td>plan/ledger 感知的 in-session 心跳：每個 tick 找出下一個可執行的 plan（<code>accepted</code>/<code>draft</code>），交給 <code>execute-plan</code> 在客觀驗收條件閘後執行，記錄結果，再排下一個 <code>ScheduleWakeup</code> tick。<strong>預設 propose-only + 單次</strong>；<code>--unattended</code> 才進入自動執行 + 循環心跳（只跑 <code>accepted</code>，並以 <code>permissions.deny</code> 為硬底線）— 它用 <code>execute-plan --auto --yes</code> 執行，所以 tick 不會卡在確認提示上；<code>--max-tokens &lt;N&gt;</code> 設總花費上限（Ralph-Wiggum 防呆）。停止：<code>Esc</code> 或 <code>CLAUDE_CODE_DISABLE_CRON=1</code>。是內建 <code>/loop</code> skill 的 plan 感知版。</td></tr>
       <tr><td><code>/yang-toolkit:today</code></td><td>當日摘要：聚合 GitHub / Jira / Slack 等外部 surface + 所有追蹤 repo 的最近 ledger entries。</td></tr>
       <tr><td><code>/yang-toolkit:week</code></td><td>跨 repo 週報，來源是 <code>~/.config/harness/repos.json</code>。</td></tr>
       <tr><td><code>/yang-toolkit:dashboard</code></td><td>把 <code>.claude/ledger.jsonl</code> + 即時 git 渲成一組有時間戳的成對檔：互動式 <code>dashboard-&lt;TS&gt;.html</code>（timeline + kanban + stats + <strong>loop economics</strong>〔接受率 &amp; 每個被接受變更的成本〕，含 outcome 篩選、feature focus、與<strong>瀏覽器內的 git diff 檢視</strong>）以及給 review/AI 用的純文字 <code>dashboard-&lt;TS&gt;.md</code>。</td></tr>

@@ -204,7 +204,7 @@
   <div class="hdr-title">
     harness <span class="slash">//</span> <span class="what">usage</span>
   </div>
-  <span class="badge">yang-toolkit v0.10.1</span>
+  <span class="badge">yang-toolkit v0.14.0</span>
   <span class="badge">2026-06-07</span>
   <span class="badge" style="margin-left:auto;"><b style="color:var(--text);">EN</b> · <a href="usage.zh.html">中文</a></span>
 </header>
@@ -318,6 +318,7 @@
       <tr><td><code>--from &lt;slug&gt;</code></td><td>Run an explicit plan instead of the most-recent draft.</td></tr>
       <tr><td><code>--single</code> / <code>--workflow</code> / <code>--team</code></td><td>Override the plan's <code>orchestration</code> for this run only.</td></tr>
       <tr><td><code>--auto</code></td><td>Enter auto mode for this run so the <code>/goal</code> loop (single/team) or the workflow's agents run unattended. Without it each turn still pauses for tool approval -- <code>/goal</code> alone only removes per-turn prompts.</td></tr>
+      <tr><td><code>--yes</code></td><td>Non-interactive: skip the confirm-and-proceed prompts (the Step 3 <code>/goal</code>-condition confirm, and the single-match confirm). Genuine decisions fail safe -- <code>executing</code> resumes, <code>failed</code> or an un-enableable <code>--auto</code> aborts. Pair with <code>--auto</code> for fully unattended runs; used by <code>loop --unattended</code>.</td></tr>
       <tr><td><code>--no-goal</code></td><td>Skip <code>/goal</code> setup; you control turn-by-turn.</td></tr>
       <tr><td><code>--ignore-deps</code></td><td>Proceed even if <code>depends_on</code> items aren't <code>done</code> (recorded in ledger).</td></tr>
       <tr><td><code>--dry-run</code></td><td>Parse + show /goal + delegate target (single/team) or workflow args + partition map (workflow); no execution.</td></tr>
@@ -378,7 +379,7 @@
     <thead><tr><th>Command</th><th>What it does</th></tr></thead>
     <tbody>
       <tr><td><code>/yang-toolkit:status</code></td><td>One-screen overview: in-flight feature, plan statuses, ledger tail, plus one next-step suggestion. <code>--abandon</code> closes out an in-flight feature in one confirmed step.</td></tr>
-      <tr><td><code>/yang-toolkit:loop</code></td><td>Plan/ledger-aware in-session heartbeat: each tick discovers the next runnable plan (<code>accepted</code>/<code>draft</code>), runs it via <code>execute-plan</code> behind the objective acceptance-criteria gate, persists the outcome, and arms the next <code>ScheduleWakeup</code> tick. <strong>Propose-only + one-shot by default</strong>; <code>--unattended</code> opts into auto execution + the recurring loop (<code>accepted</code> plans only, floored by <code>permissions.deny</code>); <code>--max-tokens &lt;N&gt;</code> caps total spend (Ralph-Wiggum guard). Kill switch: <code>Esc</code> or <code>CLAUDE_CODE_DISABLE_CRON=1</code>. The plan-aware sibling of the generic <code>/loop</code> skill.</td></tr>
+      <tr><td><code>/yang-toolkit:loop</code></td><td>Plan/ledger-aware in-session heartbeat: each tick discovers the next runnable plan (<code>accepted</code>/<code>draft</code>), runs it via <code>execute-plan</code> behind the objective acceptance-criteria gate, persists the outcome, and arms the next <code>ScheduleWakeup</code> tick. <strong>Propose-only + one-shot by default</strong>; <code>--unattended</code> opts into auto execution + the recurring loop (<code>accepted</code> plans only, floored by <code>permissions.deny</code>) -- it drives <code>execute-plan --auto --yes</code> so a tick never pauses on a confirm prompt; <code>--max-tokens &lt;N&gt;</code> caps total spend (Ralph-Wiggum guard). Kill switch: <code>Esc</code> or <code>CLAUDE_CODE_DISABLE_CRON=1</code>. The plan-aware sibling of the generic <code>/loop</code> skill.</td></tr>
       <tr><td><code>/yang-toolkit:today</code></td><td>Daily digest aggregating external surfaces (GitHub/Jira/Slack) + every tracked repo's recent ledger entries.</td></tr>
       <tr><td><code>/yang-toolkit:week</code></td><td>Cross-repo weekly report from <code>~/.config/harness/repos.json</code>.</td></tr>
       <tr><td><code>/yang-toolkit:dashboard</code></td><td>Render <code>.claude/ledger.jsonl</code> + live git into a timestamped pair: an interactive <code>dashboard-&lt;TS&gt;.html</code> (timeline + kanban + stats + <strong>loop economics</strong> [accept rate &amp; cost-per-accepted-change], with outcome filters, feature-focus, and an <strong>in-browser git diff reviewer</strong>) and a flat <code>dashboard-&lt;TS&gt;.md</code> for review/AI.</td></tr>
