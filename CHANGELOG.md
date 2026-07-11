@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Versions track `plugins/yang-toolkit/.claude-plugin/plugin.json`.
 
+## [0.16.0] - 2026-07-11
+
+### Added
+- **`SessionStart` hook (`seed-git-exclude.sh`)** that seeds each consuming
+  repo's `.git/info/exclude` (local, per-clone, never committed) with the
+  plugin's transient `.claude/` paths — `state/`, `logs/`, `sessions/`,
+  dashboards, and locks. This stops files like `.claude/state/current-agent.txt`
+  from perpetually showing as untracked in client projects, without touching
+  their committed `.gitignore`. Keeps `.claude/ledger.jsonl` and
+  `.claude/plans/*.md` trackable. Idempotent (marker-keyed), safe outside a git
+  repo; opt-out via `HARNESS_DISABLE_GIT_EXCLUDE=1`.
+
 ## [0.15.0] - 2026-07-11
 
 ### Added

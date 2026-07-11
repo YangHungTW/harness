@@ -103,6 +103,11 @@ commands stay on Opus; everything else inherits the session model.
   opt-in for genuinely long unattended runs, not a default.
 
 **Hooks** (`plugins/yang-toolkit/hooks/hooks.json`)
+- `SessionStart` -> seed `.git/info/exclude` (local, per-clone, never committed)
+  so the consuming repo ignores the plugin's transient `.claude/` state
+  (`state/`, `logs/`, `sessions/`, dashboards, locks) without editing its
+  committed `.gitignore`. Keeps `.claude/ledger.jsonl` + `.claude/plans/*.md`
+  trackable. Idempotent (marker-keyed); opt-out `HARNESS_DISABLE_GIT_EXCLUDE=1`
 - `PreToolUse` -> `.claude/logs/session-{YYYYMMDD}.jsonl`
 - `PostToolUse` (Edit|Write|MultiEdit) -> two passive checks:
   - score the touched folder for CLAUDE.md need; dedupe-append to
@@ -196,6 +201,7 @@ official statusline docs for the latest interpolation rules.)
 > `open docs/usage.html`. On Linux: `xdg-open`.
 
 ### Passive (no commands, just happens while you work)
+- `SessionStart` hook -> seed `.git/info/exclude` (local-only) so the consuming repo ignores the plugin's transient `.claude/` state without touching its committed `.gitignore`; keeps `ledger.jsonl` + `plans/*.md` trackable
 - `PreToolUse` hook -> append every tool call to `.claude/logs/session-YYYYMMDD.jsonl`
 - `PostToolUse` hook (Edit/Write/MultiEdit) -> score the touched folder, dedupe-append candidates to `.claude/state/claude-md-candidates.jsonl`
 - `UserPromptSubmit` hook -> reset `.claude/state/current-agent.txt` to `main` at the start of each turn

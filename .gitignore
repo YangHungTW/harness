@@ -20,7 +20,9 @@ yarn-error.log*
 
 # Claude Code transient state -- in this marketplace repo we don't expect
 # .claude/ at all, but leaving the entries here as documentation of what
-# CLIENT repos using this plugin should ignore.
+# CLIENT repos using this plugin should ignore. In client repos the
+# SessionStart hook (hooks/seed-git-exclude.sh) applies this same list to
+# .git/info/exclude automatically, so this block stays the single source of truth.
 .claude/sessions/
 .claude/logs/
 .claude/state/

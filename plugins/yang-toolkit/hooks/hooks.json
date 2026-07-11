@@ -2,6 +2,18 @@
   "description": "yang-toolkit observability hooks: log tool calls, track current agent, append ledger summaries, and passively record nested-folder CLAUDE.md gap candidates.",
   "_comment_planned": "TODO: add UserPromptSubmit (capture intent), PostToolUseFailure (capture failures), Setup (warm directory create) once base flow is verified.",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "_comment": "Seed .git/info/exclude (local, per-clone, never committed) so the consuming repo ignores yang-toolkit's transient .claude/ state (state/, logs/, sessions/, dashboards, locks) without editing its committed .gitignore. Keeps ledger.jsonl + plans/*.md trackable. Idempotent (marker-keyed). Opt-out: HARNESS_DISABLE_GIT_EXCLUDE=1.",
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/seed-git-exclude.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": ".*",
