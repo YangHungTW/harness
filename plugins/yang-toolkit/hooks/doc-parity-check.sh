@@ -8,13 +8,18 @@
 # every `/yang-toolkit:<name>` that has a definition file must appear in each
 # surface, and every surface entry must map to a real definition (no orphans).
 #
+# It ALSO checks version-badge parity: the `yang-toolkit v<X.Y.Z>` badge in the
+# usage manuals must match the version in plugin.json (that badge is hand-edited
+# and silently lags release bumps).
+#
 # Two modes:
 #   1. --report  -> scan ALL commands + skills against ALL surfaces, print a
-#                   coverage matrix, exit 1 if any gap/orphan. Run it by hand or
-#                   from a pre-commit check.
-#   2. (default) -> PostToolUse hook. Reads the hook JSON on stdin; if the edited
-#                   file is a command/skill definition, nudge Claude when that
-#                   command is missing from any surface. Mirrors test-parity.
+#                   coverage matrix, exit 1 if any gap/orphan/version mismatch.
+#                   Run it by hand or from a pre-commit check.
+#   2. (default) -> PostToolUse hook. Reads the hook JSON on stdin; nudge Claude
+#                   when an edited command/skill definition is missing from any
+#                   surface, or when an edit to plugin.json / a usage manual
+#                   leaves the version badge out of sync. Mirrors test-parity.
 #
 # Conservative by design, exactly like test-parity-check.sh: a false nudge is
 # cheaper than silent doc drift. bash 3.2 / BSD userland portable.
@@ -41,6 +46,43 @@ list_names() {
     [ -e "${d}SKILL.md" ] || continue
     printf '%s\n' "$(basename "$d")"
   done
+}
+
+# --- version-badge parity helpers ------------------------------------------
+# The usage manuals carry a hand-written `yang-toolkit v<X.Y.Z>` badge that
+# drifts behind plugin.json on every release bump. Catch that drift too.
+
+# The plugin's declared version (no jq dependency -- report mode has no jq).
+plugin_version() {
+  pj="${plugin_root}/.claude-plugin/plugin.json"
+  [ -f "$pj" ] || return 0
+  sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$pj" | head -1
+}
+
+# Print "<surface>|<badge-version>" for each HTML manual carrying a badge.
+badge_versions() {
+  _repo="$1"
+  for s in docs/usage.html docs/usage.zh.html; do
+    f="${_repo}/${s}"
+    [ -f "$f" ] || continue
+    bv="$(sed -n 's/.*yang-toolkit v\([0-9][0-9.]*\).*/\1/p' "$f" | head -1)"
+    [ -n "$bv" ] && printf '%s|%s\n' "$s" "$bv"
+  done
+}
+
+# Print one line per surface whose badge disagrees with plugin.json.
+# Empty output = in sync (or nothing to compare). Line form:
+#   "<surface> badge v<badge> != plugin.json v<plugin>"
+version_mismatches() {
+  _repo="$1"
+  _pv="$(plugin_version)"
+  [ -z "$_pv" ] && return 0
+  while IFS='|' read -r _s _bv; do
+    [ -z "$_s" ] && continue
+    [ "$_bv" != "$_pv" ] && printf '%s badge v%s != plugin.json v%s\n' "$_s" "$_bv" "$_pv"
+  done <<EOF
+$(badge_versions "$_repo")
+EOF
 }
 
 # ============================ REPORT MODE =====================================
@@ -96,12 +138,25 @@ EOF
     done
   done
 
+  # Version-badge parity: usage-manual badge must match plugin.json version.
+  vmiss=0
+  vlines="$(version_mismatches "$repo")"
+  if [ -n "$vlines" ]; then
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      echo "  VERSION: ${line}"
+      vmiss=$((vmiss+1))
+    done <<EOF
+$vlines
+EOF
+  fi
+
   echo
-  if [ "$gaps" = "0" ] && [ "$orphans" = "0" ]; then
-    echo "doc-parity: OK -- every command/skill is listed in every surface, no orphans."
+  if [ "$gaps" = "0" ] && [ "$orphans" = "0" ] && [ "$vmiss" = "0" ]; then
+    echo "doc-parity: OK -- every command/skill is listed in every surface, no orphans, badge in sync."
     exit 0
   fi
-  echo "doc-parity: ${gaps} missing coverage cell(s), ${orphans} orphan(s)."
+  echo "doc-parity: ${gaps} missing coverage cell(s), ${orphans} orphan(s), ${vmiss} version mismatch(es)."
   exit 1
 fi
 
@@ -129,6 +184,26 @@ esac
 case "$abs" in
   "${project_dir}/"*) rel="${abs#${project_dir}/}" ;;
   *) exit 0 ;;
+esac
+
+# Version-badge parity: fire when plugin.json or a usage manual is edited, so a
+# release bump (or a manual badge edit) that leaves the two out of step nudges.
+case "$rel" in
+  plugins/yang-toolkit/.claude-plugin/plugin.json|docs/usage.html|docs/usage.zh.html)
+    vlines="$(version_mismatches "$project_dir")"
+    if [ -n "$vlines" ]; then
+      today="$(date -u +%Y%m%d)"
+      vwarned="${state_dir}/doc-parity-version-warned-${today}.txt"
+      if ! { [ -r "$vwarned" ] && grep -Fxq "VERSION" "$vwarned" 2>/dev/null; }; then
+        printf 'VERSION\n' >> "$vwarned" 2>/dev/null || true
+        joined="$(printf '%s' "$vlines" | tr '\n' ';' | sed 's/;$//; s/;/; /g')"
+        vmsg="doc-parity nudge (version): the usage-manual badge and plugin.json disagree -- ${joined}. Bump the badge(s) to match plugin.json before declaring this task complete."
+        jq -n -c --arg msg "$vmsg" \
+          '{ suppressOutput: false, systemMessage: $msg,
+             hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: $msg } }'
+      fi
+    fi
+    exit 0 ;;
 esac
 
 # Only act on a yang-toolkit command/skill DEFINITION file, and derive its name.
