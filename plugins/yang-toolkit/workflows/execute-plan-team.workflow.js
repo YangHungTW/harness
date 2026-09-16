@@ -20,6 +20,7 @@ export const meta = {
 //   filesTouched:       [string],                  // paths or globs, disjoint by intent
 //   outOfScope:         [string],
 //   depSummaries:       [string],                  // ~100-token blurbs, may be empty
+//   houseRules:         [string],                  // project-local format conventions, may be empty
 //   teamSize:           number,                    // desired parallel workers (default 3)
 // }
 // ---------------------------------------------------------------------------
@@ -74,6 +75,12 @@ const sharedContext = [
     : '',
   a.depSummaries && a.depSummaries.length
     ? `\n## Dependency context\n${a.depSummaries.join('\n')}`
+    : '',
+  // Project house rules: the repo's own conventions for artifacts written into
+  // its tree. Advisory formatting guidance for workers — it never overrides the
+  // Acceptance Criteria or the scope rules above.
+  a.houseRules && a.houseRules.length
+    ? `\n## Project house rules (follow these conventions; they do NOT override the criteria or scope above)\n${a.houseRules.map((s) => `- ${s}`).join('\n')}`
     : '',
 ]
   .filter(Boolean)

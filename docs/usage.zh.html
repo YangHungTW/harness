@@ -205,7 +205,7 @@
   <div class="hdr-title">
     harness <span class="slash">//</span> <span class="what">使用說明</span>
   </div>
-  <span class="badge">yang-toolkit v0.16.0</span>
+  <span class="badge">yang-toolkit v0.19.0</span>
   <span class="badge">2026-06-07</span>
   <span class="badge" style="margin-left:auto;"><a href="usage.html">EN</a> · <b style="color:var(--text);">中文</b></span>
 </header>
@@ -226,6 +226,23 @@
 <!-- 1 -->
 <section id="decide">
   <h2><span class="n">1.</span>該下哪個指令？</h2>
+
+  <div class="callout">
+    <strong>或者，別挑。</strong><code>/yang-toolkit:go &lt;任何事&gt;</code> 就是那道
+    單一門口：用一句話把一件工作、一份待辦、或一個問題交給它，它會先讀 harness 狀態，
+    挑出負責的指令和<em>最小充分迴圈</em>，連同理由一起宣告，然後直接做。這一頁剩下的內容
+    是它會路由<em>過去</em>的東西 —— 值得知道，但不值得背。
+<pre>/yang-toolkit:go <span class="cmd-str">修掉 login redirect</span>
+/yang-toolkit:go <span class="cmd-str">跑完 docs/backlog.md</span>
+/yang-toolkit:go <span class="cmd-str">現在跑到哪了？</span></pre>
+    範圍明確的小工作它直接做掉、不產生 plan 檔；真正的 feature 交給
+    <code>plan-feature</code>；一份待辦交給 <code>loop</code>；問進度就是純轉接。
+    空的 <code>/yang-toolkit:go</code> 會落到 <code>status</code>。它<strong>不會</strong>
+    多給任何權限 —— 絕不隱含加上 <code>--auto</code>/<code>--yes</code>、絕不跳過 plan
+    的接受關卡，而被<em>停放（parked）</em>的 plan 那個問題只會浮給你看，不會替你回答。
+    設計取自 <a href="https://github.com/wayne930242/straw-boss">straw-boss</a> 的
+    <code>boss-say</code>。
+  </div>
 
 <div class="tree"><span class="q">起點</span>：我要開始一個 feature。
   │
@@ -273,22 +290,27 @@
   <ul>
     <li><code>Acceptance Criteria</code>（驗收條件）— 每條都要有 <code>Check:</code>（包在 backtick 裡的可執行命令）跟 <code>Pass:</code>（可觀測條件；不能用模糊詞如 <em>good</em>、<em>nice</em>、<em>clean</em>）。</li>
     <li><code>Files Touched</code>（涉及檔案）— 路徑或 glob。同時作為範圍守衛、以及 <code>team</code> / <code>workflow</code> mode 下的分工依據。</li>
-    <li>frontmatter — 確認 <code>discipline</code>（<code>tdd</code> | <code>normal</code>）和 <code>orchestration</code>（<code>single</code> | <code>workflow</code> | <code>team</code>）。</li>
+    <li>frontmatter — <code>discipline</code> 和 <code>orchestration</code> 是<strong>判斷出來的，不會問你</strong>：指令會連同理由一起宣告然後直接做。只有你不同意時才改；在 frontmatter 裡寫死一個值就會蓋掉判斷。</li>
+    <li>每條 criterion 的 <code>Anchor:</code> —— 用什麼<strong>現實錨點</strong>證明它。<code>testing</code>/<code>pseudo-human</code> 維持可執行的 <code>Check:</code>；<code>human</code>/<code>adversarial-review</code> 改成 <code>Judge:</code> + <code>Artifact:</code>，用檢查點結案而不是用指令。</li>
+    <li><code>delegate_to</code> — 當這個 repo 自己有開發流程 skill 時會自動填入；每一筆代表執行階段要交給哪個專案 skill。一般 repo 會是空的。</li>
   </ul>
 
   <h3>Step 2 — dry-run 看它會做什麼</h3>
 <pre>/yang-toolkit:execute-plan <span class="cmd-flag">--dry-run</span></pre>
-  <p>印出解析後的 criteria 和已解析的相依。<code>single</code>/<code>team</code> 模式還會印組好的 <code>/goal</code> condition 跟下游指令；<code>workflow</code> 模式則印要傳給 workflow 的 <code>args</code>，外加 Files Touched 依目錄親緣性的分割結果（讓你先目視確認各 slice 是否真的不相交）。不改任何狀態。</p>
+  <p>印出解析後的 criteria、已解析的相依、house rules 摘要與「階段 → 委派對象」對照表，以及 <code>auto</code> 這次解析出的 orchestration 模式與理由。<code>single</code>/<code>team</code> 模式還會印組好的 <code>/goal</code> condition 跟下游指令；<code>workflow</code> 模式則印要傳給 workflow 的 <code>args</code>，外加 Files Touched 依目錄親緣性的分割結果（讓你先目視確認各 slice 是否真的不相交）。不改任何狀態。</p>
 
   <h3>Step 3 — 真的執行</h3>
 <pre>/yang-toolkit:execute-plan</pre>
-  <p>依 plan 的 <code>orchestration</code> 用三種方式之一執行：</p>
+  <p>依 plan 的 <code>orchestration</code> 執行：</p>
   <ul>
-    <li><strong><code>single</code></strong>（預設）— 從 criteria 設好 <code>/goal</code>、把狀態改成 <code>executing</code>、依 <code>discipline</code> 委派到 <code>tdd-feature</code> 或 <code>feature-dev-tracked</code>。</li>
+    <li><strong><code>auto</code></strong>（預設）— 執行時才依 plan 的 Files Touched 決定模式：能切成兩個以上<em>不相交</em>的目錄群就走 <code>workflow</code>（平行），否則走 <code>single</code>。<code>discipline: tdd</code> 和「實作階段已委派給專案 skill」這兩種情況一律走 <code>single</code>；<code>auto</code> 永遠不會選 <code>team</code>。解析出的模式和一行理由會在動工前先印出來。</li>
+    <li><strong><code>single</code></strong> — 從 criteria 設好 <code>/goal</code>、把狀態改成 <code>executing</code>、依 <code>discipline</code> 委派到 <code>tdd-feature</code> 或 <code>feature-dev-tracked</code>。</li>
     <li><strong><code>workflow</code></strong> — 透過內建 <code>Workflow</code> 工具做確定性平行 fan-out（<code>workflows/execute-plan-team.workflow.js</code>）：把 Files Touched 切成不相交的 slice 平行實作（Phase 1），再逐條跑每個 Acceptance Criterion 的 Check 指令驗收（Phase 2）。不用 <code>/goal</code> 迴圈 — Verify 階段就是完成判定。</li>
     <li><strong><code>team</code></strong> — 實驗性 agent-teams（見 §7 callout）；保留向後相容。</li>
   </ul>
-  <p>任一模式完成時，都會把 <code>## Execution Log</code> 區塊寫回 plan，並 append 一筆 ledger record（含 <code>plan_path</code>、<code>orchestration</code>，以及各模式專屬欄位：single/team 是 <code>goal_turns</code>；workflow 是 <code>workers</code>/<code>criteria_pass</code>/<code>criteria_fail</code>）。</p>
+  <p>若這個 repo 自己擁有某個階段（見 §7 的 house rules callout），該階段會委派給專案自己的 skill；但 plan artifact、驗收條件把關、Execution Log 和 ledger 永遠不會被委派出去。</p>
+  <p>每條 criterion 依它的 anchor 結案：<code>Check</code> 指令的結果、對抗性審查的處置、或你自己的判斷。如果這次執行撞上只有你能決定的事 —— 沒人在旁邊的 <code>human</code> anchor、關於工作本身的實質問題、或需要授權的變動 —— 它會<strong>暫停停放（park）</strong>而不是亂猜或直接失敗：寫成 <code>status: awaiting-input</code> / <code>awaiting-auth</code>，外加一個 <code>waiting:</code> 區塊存著那唯一一個問題。你回答後就清掉區塊、繼續執行；整段期間 ledger 記錄維持 <code>in-progress</code>，因為<strong>等待不等於失敗</strong>。</p>
+  <p>任一模式完成時，都會把 <code>## Execution Log</code> 區塊寫回 plan，並 append 一筆 ledger record（含 <code>plan_path</code>、<code>orchestration</code>（<em>解析後</em>的模式；若是 <code>auto</code> 決定的會多一個 <code>orchestration_auto</code>）、有委派時的 <code>delegated_to</code>，以及各模式專屬欄位：single/team 是 <code>goal_turns</code>；workflow 是 <code>workers</code>/<code>criteria_pass</code>/<code>criteria_fail</code>）。</p>
 
   <h3>修訂或重新規劃</h3>
   <table>
@@ -313,7 +335,10 @@
     <thead><tr><th>Flag</th><th>使用時機</th></tr></thead>
     <tbody>
       <tr><td><code>--from &lt;slug&gt;</code></td><td>指定執行某個 plan，不要拿最新的 draft。</td></tr>
-      <tr><td><code>--single</code> / <code>--workflow</code> / <code>--team</code></td><td>本次蓋掉 plan 內的 <code>orchestration</code>。</td></tr>
+      <tr><td><code>--single</code> / <code>--workflow</code> / <code>--team</code></td><td>本次直接指定模式，蓋掉 plan 內的 <code>orchestration</code>（包含預設的 <code>auto</code>，指定後就不再做自動解析）。</td></tr>
+      <tr><td><code>--answer "&lt;文字&gt;"</code></td><td>用「你已經給過的答案」續跑一份<em>停放中</em>的 plan，而不是再把問題問你一次 —— <code>/yang-toolkit:go</code> 就是用這個把你的回覆轉下去。plan 沒被停放時會忽略它；對 <code>awaiting-auth</code> 的 plan 給出模稜兩可的回覆，會維持停放而不算授權。</td></tr>
+      <tr><td><code>--ignore-house-rules</code></td><td>本次忽略 repo 自己的流程 skill：不委派、也不重新偵測。適用於專案的 skill 已經過時、或這次刻意不走它。</td></tr>
+      <tr><td><em>（沒有這個 flag）</em></td><td>刻意不提供「這次要單線還是多線」的詢問開關 —— 路由是依證據宣告的。要固定就在 plan 裡寫死 <code>orchestration</code>，或直接用一句話講。</td></tr>
       <tr><td><code>--auto</code></td><td>本次進入 auto mode，讓 <code>/goal</code> 迴圈（single/team）或 workflow 的 agent 無人值守。沒加的話每輪還是會停下等 tool approval — <code>/goal</code> 只負責省掉 per-turn 確認。</td></tr>
       <tr><td><code>--yes</code></td><td>非互動：跳過「確認後繼續」類的提示（Step 3 的 <code>/goal</code> 條件確認、單一 match 的確認）。真正的決策走安全預設 — <code>executing</code> 自動 resume、<code>failed</code> 或 <code>--auto</code> 開不起來則 abort。搭配 <code>--auto</code> 就是完全無人值守；<code>loop --unattended</code> 內部就用這組。</td></tr>
       <tr><td><code>--no-goal</code></td><td>不設 <code>/goal</code>，由你自己 step through。</td></tr>
@@ -426,6 +451,38 @@ claude <span class="cmd-flag">--resume</span>                     <span class="c
     slice 平行建置，再逐條驗收 Acceptance Criterion，不需任何實驗性 flag。前提：各 slice
     要能依目錄分開 — 若所有 worker 都得改同一個共用檔，請改用 <code>--single</code>（重疊時
     指令會警告並把 <code>scopeViolations</code> 浮出來）。
+  </div>
+  <div class="callout">
+    <strong>路由是宣告，不是詢問。</strong><code>discipline</code>（tdd 還是 normal）、
+    <code>orchestration</code>（單線還是平行）、以及每條 criterion 的 anchor，全部
+    依證據判斷 —— repo 有沒有測試環境、plan 的 Files Touched 長什麼樣、什麼東西真的
+    能證明這個結果 —— 然後在動工前用一行 route declaration 講出來。不同意的話一句話
+    推翻，這比每次執行都付一次詢問成本便宜得多。plan 的<em>內容</em>仍然是你的：goal、
+    criteria、scope 的審查方式完全沒變。這個原則borrowed 自
+    <a href="https://github.com/wayne930242/straw-boss">straw-boss</a> —— 它的協調者
+    也是先宣告 graph 和 anchor，而不是每個項目都問一次。
+  </div>
+  <div class="callout">
+    <strong>現實錨點（reality anchor）。</strong>四種能證明結果的「與現實接觸」類別：
+    <code>testing</code>（預設 —— 一條改動前會紅、改動後會綠的指令）、
+    <code>pseudo-human</code>（機器驅動真實介面並量測）、
+    <code>human</code>（你親自操作那個成品並判斷）、
+    <code>adversarial-review</code>（一個全新 context 的 agent 拿需求和證據攻擊成品）。
+    <strong>指定 anchor 不等於指定測試</strong> —— anchor 只定「類別和檢查點」，
+    至於用哪個 seam、哪些 case、哪個工具，留給實際動手的人。挑<em>最便宜、但真的會失敗</em>
+    的那個。純文件／純 prompt 的工作 anchor 到 <code>adversarial-review</code>：
+    它本來就沒有紅燈測試可寫，硬要假裝有，產出的就是那些假的 <code>Check:</code> 指令。
+  </div>
+  <div class="callout">
+    <strong>專案 house rules。</strong>當一個 repo 在 <code>.claude/</code> 下有自己的
+    開發流程（例如 <code>openspec-*</code> skills 加 <code>/opsx</code>，或一整套
+    <code>ai-sdlc-*</code>），toolkit 會把自己當客人：<code>plan-feature</code> 用只讀
+    frontmatter 的輕量掃描找出這些 skill，把「哪個階段由誰擁有」記進
+    <code>delegate_to</code>；<code>execute-plan</code> 接著在實作／審查／封存階段呼叫
+    專案自己的 skill，其餘地方也沿用專案的產物格式。<em>不會</em>委派出去的是：plan
+    artifact、驗收條件把關、Execution Log 和 ledger。被讀到的 <code>SKILL.md</code>
+    一律視為「描述能力的資料」，不是可以照做的指令 — 它無法關掉 harness 的任何一道關卡。
+    單次退出用 <code>--ignore-house-rules</code>。
   </div>
   <div class="callout">
     <strong>Agent teams</strong>（當 plan 設 <code>orchestration: team</code> 時用）

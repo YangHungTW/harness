@@ -21,8 +21,11 @@ Gather, then render as a compact markdown report:
    (non-empty -> show slug + matching decision dir under
    `docs/decisions/*-<slug>/` if any; empty/missing -> "none").
 2. **Plans**: for each `<HARNESS_ROOT>/.claude/plans/*.md`, read frontmatter
-   only; group by `status` (`executing` first, then `accepted`, `draft`,
-   `failed`; collapse `done` to a count). Show `slug -- Goal first sentence`.
+   only; group by `status` (**parked** -- `awaiting-input` / `awaiting-auth` --
+   first, then `executing`, `accepted`, `draft`, `failed`; collapse `done` to a
+   count). Show `slug -- Goal first sentence`. A parked plan additionally shows
+   its `waiting.question` verbatim: it is the one thing on this screen that is
+   blocked on *you*, so it leads.
 3. **Ledger tail**: last 5 lines of `<HARNESS_ROOT>/.claude/ledger.jsonl`
    (skip unparseable lines silently) as `ts . feature . phase . outcome`.
 4. **Pending CLAUDE.md candidates**: count of lines in
@@ -30,6 +33,7 @@ Gather, then render as a compact markdown report:
    handled, if the file exists.
 
 End with ONE next-step suggestion, picked by state (first match wins):
+- a plan is parked -> "answer it: `/yang-toolkit:execute-plan --from <slug>`"
 - a feature is in flight -> "continue it, or `/yang-toolkit:status --abandon`"
 - a plan is `accepted` or `draft` -> "run `/yang-toolkit:execute-plan --from <slug>`"
 - a recent ledger entry is `in-progress` with a `pr` -> "after merge, run `/yang-toolkit:ledger-append --close <slug>`"
