@@ -22,6 +22,13 @@ To bring an agent to a repo, either install a community plugin
 hook and show up in the statusline / dashboard automatically.
 
 **Skills** (`plugins/yang-toolkit/skills/`)
+- `go` -- **the single door.** Hand it a task, a backlog, or a question in one
+  line; it reads the harness state, picks the owning command and the *smallest
+  sufficient loop*, declares the route, and runs it. Bounded work is carried
+  directly with no plan artifact; a real feature gets `plan-feature`; a backlog
+  gets `loop`; a status question is a passthrough. Modeled on `straw-boss`'s
+  `boss-say`. It never weakens a gate: no implicit `--auto`/`--yes`, no skipping
+  plan acceptance, no answering a parked question for you
 - `today` -- daily digest across GitHub / Jira / Slack / per-repo ledgers
 - `week` -- cross-repo weekly report from `~/.config/harness/repos.json`
 - `dashboard` -- render the ledger + live git into a paired, timestamped artifact:
@@ -40,20 +47,39 @@ hook and show up in the statusline / dashboard automatically.
   transcript). Research **depth is chosen automatically** (deep for fuzzy / broad
   / external / risky work -> external research + "plan for the plan"; shallow for
   small local changes); `--deep` / `--shallow` only override it. Does NOT execute;
-  hand to `/execute-plan` when ready. Supports `--from <slug>` (replan) and
-  `--revise <slug>` (append a revision section).
+  hand to `/execute-plan` when ready. Also probes the repo's **own** workflow
+  skills (`.claude/skills/`, `.claude/commands/`, `.claude/agents/`, `AGENTS.md`)
+  so the plan follows local artifact conventions and records which phases the
+  project already owns in `delegate_to` (`--ignore-house-rules` skips this).
+  Supports `--from <slug>` (replan) and `--revise <slug>` (append a revision
+  section). **Routing is declared, never asked** — `discipline` is judged from
+  the repo's test evidence and `orchestration` defaults to `auto`, both stated
+  in a one-line route declaration you override in a sentence. Every acceptance
+  criterion carries a **reality anchor** (`testing` / `pseudo-human` / `human` /
+  `adversarial-review`), so work with no assertable seam gets a real checkpoint
+  instead of a fake `Check:` command.
 - `/yang-toolkit:share-plan` -- render a plan (or any plan-shaped markdown) into
   a clean, self-contained, shareable HTML document for a non-terminal colleague.
   Read-only, timestamped snapshot at `.claude/plans/<slug>-<TS>.html`.
 - `/yang-toolkit:execute-plan` -- parse + validate a plan, resolve
-  `depends_on`, then run it per the plan's `orchestration`: `single`
-  (assemble a `/goal` condition and delegate to `tdd-feature` /
-  `feature-dev-tracked` by `discipline`), `workflow` (deterministic
-  parallel fan-out via the built-in `Workflow` tool — see
+  `depends_on`, then run it per the plan's `orchestration`: `auto` (the
+  default — resolves to `workflow` when Files Touched split into disjoint
+  slices, else `single`), `single` (assemble a `/goal` condition and delegate
+  to `tdd-feature` / `feature-dev-tracked` by `discipline`), `workflow`
+  (deterministic parallel fan-out via the built-in `Workflow` tool — see
   `workflows/execute-plan-team.workflow.js`), or `team` (experimental
-  agent-teams). `--dry-run` shows the assembled /goal (or the workflow
-  args + partition map) without executing. `--auto --yes` makes a run fully
-  non-interactive (used by `/yang-toolkit:loop --unattended`).
+  agent-teams). Honors **project house rules**: where the repo ships its own
+  workflow skills (`openspec-*`, `ai-sdlc-*`, …) the matching phase is
+  delegated to them and the harness keeps only the bookkeeping —
+  `--ignore-house-rules` opts out. `--dry-run` shows the assembled /goal (or
+  the workflow args + partition map), the resolved mode and the delegation map
+  without executing. `--auto --yes` makes a run fully non-interactive (used by
+  `/yang-toolkit:loop --unattended`). Closes each criterion by its **anchor**
+  (a Check command, an adversarial review, or the user's judgment), and can
+  **park** a run it cannot settle alone as `awaiting-input` / `awaiting-auth`
+  with the question written into the plan — a held question, not a failure.
+  `--answer "<text>"` resumes a parked plan with an answer the caller already
+  holds (how `/yang-toolkit:go` forwards yours) instead of re-asking it.
 - `/yang-toolkit:feature-dev-tracked` -- wraps `/feature-dev`, writes per-phase
   decision docs + one ledger summary
 - `/yang-toolkit:tdd-feature` -- TDD-discipline sibling. Can continue from a
@@ -64,7 +90,10 @@ hook and show up in the statusline / dashboard automatically.
   objective acceptance-criteria gate, persists the outcome, and arms the next
   wake-up. Propose-only by default; `--unattended` opts into auto execution;
   `--max-tokens` is the hard budget cap (Ralph-Wiggum guard). The plan-aware
-  sibling of the generic harness `/loop` skill.
+  sibling of the generic harness `/loop` skill. **Parked** plans are reported
+  once and then go quiet — never re-run, never re-charged against the budget —
+  and the loop keeps a slow heartbeat instead of stopping, so it resumes the
+  moment you answer.
 - `/yang-toolkit:status` -- one-screen overview of in-flight work (current
   feature, plan statuses, ledger tail) + a single next-step suggestion;
   `--abandon` closes out an in-flight feature in one confirmed step
@@ -77,12 +106,18 @@ hook and show up in the statusline / dashboard automatically.
 **References** (`plugins/yang-toolkit/references/`)
 - `conventions.md` -- single canonical copy of the cross-command conventions:
   `<HARNESS_ROOT>` resolution, durable-vs-ephemeral path split, ledger schema +
-  outcome rules + append rule, slug derivation, timestamp formats. Commands
-  read it at start instead of repeating these blocks.
+  outcome rules + append rule, slug derivation, timestamp formats, and the
+  **project house rules** discovery/delegation protocol (how the toolkit defers
+  to a repo's own workflow skills, and the trust boundary that stops a project
+  file from disabling a harness gate), the **routing declaration** rule (routing
+  is stated, never asked), the four **reality anchors**, and the **run states**
+  (including the two non-terminal parked states). Commands read it at start
+  instead of repeating these blocks.
 
 **Workflows** (`plugins/yang-toolkit/workflows/`)
 - `execute-plan-team.workflow.js` -- deterministic parallel fan-out for
-  `/yang-toolkit:execute-plan` when a plan sets `orchestration: workflow`.
+  `/yang-toolkit:execute-plan` when a plan sets `orchestration: workflow` --
+  or when the default `orchestration: auto` resolves to it.
   Partitions Files Touched into disjoint slices by directory affinity,
   implements each slice concurrently (Phase 1), then verifies every
   Acceptance Criterion by running its Check command (Phase 2). Invoked
@@ -123,6 +158,13 @@ commands stay on Opus; everything else inherits the session model.
 - `UserPromptSubmit` -> reset `.claude/state/current-agent.txt` to `main`
   (the pointer otherwise sticks at the last subagent name after it finishes)
 - `SubagentStop` -> `.claude/state/current-agent.txt`
+- `Stop` -> **checkpoint guard**: refuse to let a turn end silently with the
+  tracked plan still `status: executing` and no Execution Log entry for the run
+  (ported from `straw-boss`'s dispatched-agent stop guard). Terminal and parked
+  statuses pass through untouched. Nudges by default;
+  `HARNESS_STRICT_CHECKPOINT=1` blocks the stop so an unattended `/goal` or
+  `/loop` run is forced back in to finish the close-out. Opt-out
+  `HARNESS_DISABLE_CHECKPOINT_GUARD=1`
 - `Stop` -> append summary to `.claude/ledger.jsonl` ONLY when a feature is in
   flight (`.claude/state/current-feature.txt` non-empty); the appended entry is
   tagged `source:"stop-hook"` with outcome=`in-progress` (user-correctable via
@@ -220,8 +262,9 @@ TDD discipline matters:
 
 | Step | Command | What it does |
 | ---- | ------- | ------------ |
-| 0p. Plan (optional pre-stage) | `/yang-toolkit:plan-feature "<description>"` | Runs a parallel research fan-out (codebase patterns + ledger/prior-plans/decision history + conditional recency-grounded external research), then plan mode, writes `.claude/plans/<slug>.md`. Auto-suggests `depends_on` for related unfinished features. Review the file, edit if needed. Then `/yang-toolkit:share-plan <slug>` for a shareable HTML doc. |
-| 0x. Execute the plan | `/yang-toolkit:execute-plan` (or `--from <slug>`, `--dry-run`, `--single` / `--team` / `--workflow`, `--auto`, `--yes` overrides) | Parses + validates the plan, then runs it one of three ways per the plan's `orchestration`: **single** (sequential `/goal` loop → `tdd-feature` / `feature-dev-tracked`), **workflow** (deterministic parallel fan-out via the built-in `Workflow` tool — partitions Files Touched into disjoint slices, implements them concurrently, then verifies each Acceptance Criterion), or **team** (experimental agent-teams). With `--auto` the `single`/`team` `/goal` loop runs unattended; `--yes` additionally skips the confirm-and-proceed prompts (genuine decisions fail safe — see the command's `--yes` resolution table). Updates plan status + appends ledger at the end. |
+| **00. Just say it** | `/yang-toolkit:go "<anything>"` | **The door — use this when you don't want to pick a row below.** Reads harness state (in-flight feature, plan statuses, any *parked* plan waiting on your answer), classifies the request, then routes to the owning command and the smallest sufficient loop: bounded work is carried directly with no plan artifact, a real feature goes to `plan-feature`, a backlog goes to `loop`, a status question is a passthrough. Declares the route with its reason and proceeds — override in one sentence. Adds no permissions: no implicit `--auto`/`--yes`, the plan-acceptance gate stays, and a parked question is surfaced, never answered for you. Empty invocation falls through to `status`. |
+| 0p. Plan (optional pre-stage) | `/yang-toolkit:plan-feature "<description>"` | Runs a parallel research fan-out (codebase patterns + ledger/prior-plans/decision history + conditional recency-grounded external research), then plan mode, writes `.claude/plans/<slug>.md`. Auto-suggests `depends_on` for related unfinished features, gives each acceptance criterion a reality anchor, and declares the route (`discipline`/`orchestration`) instead of asking. Review the file, edit if needed. Then `/yang-toolkit:share-plan <slug>` for a shareable HTML doc. |
+| 0x. Execute the plan | `/yang-toolkit:execute-plan` (or `--from <slug>`, `--dry-run`, `--single` / `--team` / `--workflow`, `--ignore-house-rules`, `--answer`, `--auto`, `--yes` overrides) | Parses + validates the plan, then runs it per the plan's `orchestration` — **auto** by default, which resolves to **workflow** when Files Touched split into ≥2 disjoint directory buckets (and no project skill owns implementation, and `discipline` isn't `tdd`), else **single**. **single** = sequential `/goal` loop → `tdd-feature` / `feature-dev-tracked`; **workflow** = deterministic parallel fan-out via the built-in `Workflow` tool (partitions Files Touched into disjoint slices, implements them concurrently, then verifies each Acceptance Criterion); **team** = experimental agent-teams, explicit only. Where the repo ships its own workflow skills, the implementation / review / archive phase is delegated to them (`--ignore-house-rules` opts out); the plan artifact, criteria gate and ledger are never delegated. With `--auto` the `single`/`team` `/goal` loop runs unattended; `--yes` additionally skips the confirm-and-proceed prompts (genuine decisions fail safe — see the command's `--yes` resolution table). Updates plan status + appends ledger at the end. Routing (`discipline`, `orchestration`) is **declared with its reason, never asked** — override in one sentence. Criteria close by their reality anchor; a decision only you can make parks the run as `awaiting-input`/`awaiting-auth` rather than failing it. |
 | 0a. Start (regular flow, no plan stage) | `/yang-toolkit:feature-dev-tracked "<one-line description>"` | Wraps `/feature-dev`. Drives discovery -> architecture -> implementation -> review -> summary; writes one decision doc per phase under `docs/decisions/{date}-{slug}/`; appends a ledger summary at the end. |
 | 0b. Start (TDD flow, no plan stage) | `/yang-toolkit:tdd-feature "<description>"` OR `/yang-toolkit:tdd-feature` (continues from a paused feature-dev-tracked) | Enforces red -> green -> refactor per test case; writes a `02b-test-plan.md` then a `03-tdd-cycles.md` log; shares the same decision dir and ledger schema as feature-dev-tracked. Adds a `cycles` field to the ledger entry. |
 | 1. (during discovery, auto) | -- | `code-explorer` agent (ships with `feature-dev`) traces the codebase. No command needed. |
@@ -534,6 +577,17 @@ claude --plugin-dir ./plugins/yang-toolkit
 `execute-plan-team` workflow are all implemented and in personal use
 (no warranty -- see the note at the top). Recent additions:
 
+- `v0.19.0` -- `/yang-toolkit:go`, one door for the whole toolkit: routes any
+  one-line request to the right command and the smallest sufficient loop instead
+  of making you remember the plan -> execute -> ledger sequence
+- `v0.18.0` -- ideas ported from [straw-boss](https://github.com/wayne930242/straw-boss):
+  routing is **declared, never asked** (`discipline` auto-judged, `orchestration`
+  already `auto`), **reality anchors** per acceptance criterion, non-terminal
+  **parked** run states so an unattended run can hold a question instead of
+  failing, and a **Stop checkpoint guard** against plans stranded in `executing`
+- `v0.17.0` -- project house rules (delegate a phase to the repo's own workflow
+  skills, keep the bookkeeping) + `orchestration: auto` as the plan default
+  (parallel `workflow` when Files Touched are disjoint, else `single`)
 - `v0.7.0` -- worktree-aware state: plans, ledger, and the CLAUDE.md candidate
   queue now anchor to the MAIN worktree (survive worktree deletion); logs +
   session cursors stay per-worktree.

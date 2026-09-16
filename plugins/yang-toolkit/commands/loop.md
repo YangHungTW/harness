@@ -65,9 +65,16 @@ PRs needing rework, failing CI, pending `claude-md-candidates`, an in-flight
 `current-feature.txt` continuation) are explicitly out of scope for v1 and
 listed below.
 
+Also collect every plan whose `status` is `awaiting-input` or `awaiting-auth`
+-- these are **parked**, not runnable: a previous run hit something only you can
+settle and wrote the question into the plan's `waiting:` block rather than
+guessing it or failing (see `conventions.md`, "Run states"). They never enter
+the selection in Step 2.
+
 Also read `${CLAUDE_PROJECT_DIR}/.claude/state/current-feature.txt`: if it is
 non-empty, a feature is already in flight -- prefer resuming that plan over
-starting a new one, and never start a second one on top of it.
+starting a new one, and never start a second one on top of it. A parked plan
+still owns that pointer; that is expected and is not a stuck-state to clear.
 
 ## Step 2 -- Select
 
@@ -83,8 +90,19 @@ This keeps the human on the accept/reject decision, per the "don't let the loop
 touch judgment work" rule. Propose-only mode may surface a `draft`; it just will
 not run it.
 
+**Parked plans are surfaced once, then go quiet.** On the tick where a plan
+first becomes parked (or its `waiting:` question changes), report the question
+verbatim with the plan slug and set `noop: false` -- that is real news. On every
+later tick carrying the same unchanged question, stay silent and `noop: true`:
+repeating it is confirmation, not a delta. Never re-run, re-park, or "retry" a
+parked plan, and never charge one against the token budget. Borrowed from
+`straw-boss`'s rule that unchanged idleness is not a coordination delta.
+
 If nothing is runnable, the backlog is empty -- **stop the loop** and report; do
-not arm another wake-up to spin on an empty queue.
+not arm another wake-up to spin on an empty queue. **Exception:** if the only
+thing left is parked plans, do NOT stop -- the loop keeps a quiet heartbeat so
+it resumes the moment you answer. Report that state once and use long wake-up
+intervals from then on.
 
 ## Step 3 -- Execute behind the objective gate
 
@@ -130,7 +148,7 @@ stops here (it proposed; the ball is in your court). In unattended mode, if
 there is budget remaining and runnable work left, call `ScheduleWakeup`
 (honoring `--interval`) to fire the next tick; if `--once` was passed, run this
 one tick and stop without arming. Whenever the loop halts, record why in the
-loop-state `stopped_reason` (`empty-backlog` / `budget-exhausted` /
+loop-state `stopped_reason` (`empty-backlog` / `all-parked` / `budget-exhausted` /
 `kill-switch` / `once`). Re-read the loop-state file at the START of every tick
 so budget accounting survives a session resume.
 
@@ -149,7 +167,7 @@ belong under `<HARNESS_ROOT>` with the plans and ledger). It holds at least:
   "last_slug":      "<slug|null>",
   "last_outcome":   "<in-progress|merged|abandoned|failed|null>", // ledger vocab
   "unattended":     <bool>,
-  "stopped_reason": "<empty-backlog|budget-exhausted|kill-switch|once|null>"
+  "stopped_reason": "<empty-backlog|all-parked|budget-exhausted|kill-switch|once|null>"
 }
 ```
 

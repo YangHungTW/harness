@@ -204,7 +204,7 @@
   <div class="hdr-title">
     harness <span class="slash">//</span> <span class="what">usage</span>
   </div>
-  <span class="badge">yang-toolkit v0.16.0</span>
+  <span class="badge">yang-toolkit v0.19.0</span>
   <span class="badge">2026-06-07</span>
   <span class="badge" style="margin-left:auto;"><b style="color:var(--text);">EN</b> · <a href="usage.zh.html">中文</a></span>
 </header>
@@ -225,6 +225,25 @@
 <!-- 1 -->
 <section id="decide">
   <h2><span class="n">1.</span>Which command should I run?</h2>
+
+  <div class="callout">
+    <strong>Or don't pick one.</strong> <code>/yang-toolkit:go &lt;anything&gt;</code>
+    is the single door: hand it a task, a backlog, or a question in one line and it
+    reads the harness state, picks the owner and the <em>smallest sufficient loop</em>,
+    declares the route with its reason, and runs it. The rest of this page is what
+    it routes <em>to</em> — worth knowing, not worth memorising.
+<pre>/yang-toolkit:go <span class="cmd-str">修掉 login redirect</span>
+/yang-toolkit:go <span class="cmd-str">跑完 docs/backlog.md</span>
+/yang-toolkit:go <span class="cmd-str">現在跑到哪了？</span></pre>
+    Bounded work it carries directly with no plan artifact; a real feature goes to
+    <code>plan-feature</code>; a backlog goes to <code>loop</code>; a status question is a
+    passthrough. An empty <code>/yang-toolkit:go</code> falls through to
+    <code>status</code>. It adds <strong>no</strong> permissions — never an implicit
+    <code>--auto</code>/<code>--yes</code>, never skipping plan acceptance, and a
+    <em>parked</em> plan's question is surfaced to you, never answered for you.
+    Modeled on <a href="https://github.com/wayne930242/straw-boss">straw-boss</a>'s
+    <code>boss-say</code>.
+  </div>
 
 <div class="tree"><span class="q">START</span>: I want to begin a feature.
   │
@@ -275,22 +294,27 @@
   <ul>
     <li><code>Acceptance Criteria</code> — each item needs <code>Check:</code> (a runnable command in backticks) and <code>Pass:</code> (an observable condition; no fuzzy words like <em>good</em>/<em>nice</em>/<em>clean</em>).</li>
     <li><code>Files Touched</code> — paths or globs. Used both as scope guard and as work-split when running in <code>team</code> or <code>workflow</code> mode.</li>
-    <li>Frontmatter — confirm <code>discipline</code> (<code>tdd</code> | <code>normal</code>) and <code>orchestration</code> (<code>single</code> | <code>workflow</code> | <code>team</code>).</li>
+    <li>Frontmatter — <code>discipline</code> and <code>orchestration</code> are <strong>judged, not asked</strong>: the command declares each with its reason and proceeds. Change one only if you disagree; pinning a value in frontmatter overrides the judgment.</li>
+    <li><code>Anchor:</code> on each criterion — the <strong>reality anchor</strong> that proves it. <code>testing</code>/<code>pseudo-human</code> keep a runnable <code>Check:</code>; <code>human</code>/<code>adversarial-review</code> replace it with <code>Judge:</code> + <code>Artifact:</code> and are closed as checkpoints, not commands.</li>
+    <li><code>delegate_to</code> — auto-filled when the repo ships its own workflow skills; each entry hands one phase to a project skill at execution time. Empty in a plain repo.</li>
   </ul>
 
   <h3>Step 2 — dry-run to inspect what it'll do</h3>
 <pre>/yang-toolkit:execute-plan <span class="cmd-flag">--dry-run</span></pre>
-  <p>Prints the parsed criteria and resolved deps. In <code>single</code>/<code>team</code> mode it also shows the assembled <code>/goal</code> condition and the downstream command; in <code>workflow</code> mode it shows the <code>args</code> that would be passed to the workflow plus the directory-affinity partition of Files Touched (so you can eyeball whether the slices are actually disjoint). No state is changed.</p>
+  <p>Prints the parsed criteria, the resolved deps, the house-rules digest with its phase&nbsp;→&nbsp;delegate map, and the orchestration mode <code>auto</code> resolved to (with the reason). In <code>single</code>/<code>team</code> mode it also shows the assembled <code>/goal</code> condition and the downstream command; in <code>workflow</code> mode it shows the <code>args</code> that would be passed to the workflow plus the directory-affinity partition of Files Touched (so you can eyeball whether the slices are actually disjoint). No state is changed.</p>
 
   <h3>Step 3 — execute</h3>
 <pre>/yang-toolkit:execute-plan</pre>
-  <p>Runs the plan one of three ways per its <code>orchestration</code>:</p>
+  <p>Runs the plan per its <code>orchestration</code>:</p>
   <ul>
-    <li><strong><code>single</code></strong> (default) — sets <code>/goal</code> from the criteria, switches <code>status: executing</code>, delegates to <code>tdd-feature</code> or <code>feature-dev-tracked</code> by <code>discipline</code>.</li>
+    <li><strong><code>auto</code></strong> (default) — resolves the mode at run time from the plan's Files Touched: two or more <em>disjoint</em> directory buckets → <code>workflow</code>, otherwise <code>single</code>. <code>discipline: tdd</code> and a delegated implementation phase both force <code>single</code>; <code>auto</code> never picks <code>team</code>. The resolved mode and its one-line reason are printed before anything runs.</li>
+    <li><strong><code>single</code></strong> — sets <code>/goal</code> from the criteria, switches <code>status: executing</code>, delegates to <code>tdd-feature</code> or <code>feature-dev-tracked</code> by <code>discipline</code>.</li>
     <li><strong><code>workflow</code></strong> — deterministic parallel fan-out via the built-in <code>Workflow</code> tool (<code>workflows/execute-plan-team.workflow.js</code>): partitions Files Touched into disjoint slices, implements them concurrently (Phase 1), then verifies every Acceptance Criterion by running its Check command (Phase 2). No <code>/goal</code> loop — the Verify phase is the completion check.</li>
     <li><strong><code>team</code></strong> — experimental agent-teams (see callout in §7); kept for back-compat.</li>
   </ul>
-  <p>On completion (any mode) it writes a <code>## Execution Log</code> block back into the plan and appends one ledger record with <code>plan_path</code>, <code>orchestration</code>, and mode-specific fields (<code>goal_turns</code> for single/team; <code>workers</code>/<code>criteria_pass</code>/<code>criteria_fail</code> for workflow).</p>
+  <p>Where the repo owns a phase (see the house-rules callout in §7), that phase is delegated to the project's own skill; the plan artifact, criteria gate, Execution Log and ledger are never delegated.</p>
+  <p>Each criterion closes by its anchor: a <code>Check</code> command's result, an adversarial review's disposition, or your own judgment. If the run hits something only you can settle — a <code>human</code> anchor with nobody watching, a substantive work question, or a gated mutation — it <strong>parks</strong> instead of guessing or failing: <code>status: awaiting-input</code> / <code>awaiting-auth</code> plus a <code>waiting:</code> block holding the one question. Answering it clears the block and resumes the run; the ledger record stays <code>in-progress</code> throughout, because waiting is not failing.</p>
+  <p>On completion (any mode) it writes a <code>## Execution Log</code> block back into the plan and appends one ledger record with <code>plan_path</code>, <code>orchestration</code> (the <em>resolved</em> mode, plus <code>orchestration_auto</code> when <code>auto</code> chose it), <code>delegated_to</code> if any phase was handed off, and mode-specific fields (<code>goal_turns</code> for single/team; <code>workers</code>/<code>criteria_pass</code>/<code>criteria_fail</code> for workflow).</p>
 
   <h3>Revising or replanning</h3>
   <table>
@@ -316,7 +340,10 @@
     <thead><tr><th>Flag</th><th>Use when</th></tr></thead>
     <tbody>
       <tr><td><code>--from &lt;slug&gt;</code></td><td>Run an explicit plan instead of the most-recent draft.</td></tr>
-      <tr><td><code>--single</code> / <code>--workflow</code> / <code>--team</code></td><td>Override the plan's <code>orchestration</code> for this run only.</td></tr>
+      <tr><td><code>--single</code> / <code>--workflow</code> / <code>--team</code></td><td>Pin the mode for this run only, overriding the plan's <code>orchestration</code> (including the <code>auto</code> default, whose resolution is then skipped).</td></tr>
+      <tr><td><code>--answer "&lt;text&gt;"</code></td><td>Resume a <em>parked</em> plan with an answer you have already given, instead of re-presenting its question — this is how <code>/yang-toolkit:go</code> forwards your reply. Ignored on a plan that is not parked; an ambiguous reply to an <code>awaiting-auth</code> plan keeps it parked rather than counting as consent.</td></tr>
+      <tr><td><code>--ignore-house-rules</code></td><td>Ignore the repo's own workflow skills for this run: no delegation, no re-discovery. Use when the project's skills are stale or deliberately out of play.</td></tr>
+      <tr><td><em>(no flag)</em></td><td>There is deliberately no flag to choose single vs team per run — routing is declared from evidence. Pin <code>orchestration</code> in the plan, or say so in one sentence.</td></tr>
       <tr><td><code>--auto</code></td><td>Enter auto mode for this run so the <code>/goal</code> loop (single/team) or the workflow's agents run unattended. Without it each turn still pauses for tool approval -- <code>/goal</code> alone only removes per-turn prompts.</td></tr>
       <tr><td><code>--yes</code></td><td>Non-interactive: skip the confirm-and-proceed prompts (the Step 3 <code>/goal</code>-condition confirm, and the single-match confirm). Genuine decisions fail safe -- <code>executing</code> resumes, <code>failed</code> or an un-enableable <code>--auto</code> aborts. Pair with <code>--auto</code> for fully unattended runs; used by <code>loop --unattended</code>.</td></tr>
       <tr><td><code>--no-goal</code></td><td>Skip <code>/goal</code> setup; you control turn-by-turn.</td></tr>
@@ -431,6 +458,45 @@ claude <span class="cmd-flag">--resume</span>                     <span class="c
     needed. Precondition: the slices must be separable by directory — if workers
     would all need the same shared file, prefer <code>--single</code> (the command
     warns and surfaces any <code>scopeViolations</code> if they overlap).
+  </div>
+  <div class="callout">
+    <strong>Routing is declared, never asked.</strong> <code>discipline</code>
+    (tdd vs normal), <code>orchestration</code> (single vs parallel) and each
+    criterion's anchor are all judged from evidence — the repo's test setup, the
+    plan's Files Touched, what could actually prove the result — and stated in a
+    one-line route declaration before work starts. You override any of it in a
+    sentence, which is cheaper than a prompt paid on every run. Plan
+    <em>content</em> is still yours: goal, criteria and scope are reviewed the
+    same way they always were. Borrowed from
+    <a href="https://github.com/wayne930242/straw-boss">straw-boss</a>, whose
+    coordinator states the graph and anchor rather than asking per item.
+  </div>
+  <div class="callout">
+    <strong>Reality anchors.</strong> Four categories of contact with reality
+    that can prove a result: <code>testing</code> (default — a command that goes
+    red before and green after), <code>pseudo-human</code> (a machine drives the
+    real interface and measures), <code>human</code> (you operate the artifact
+    and judge), <code>adversarial-review</code> (a fresh-context agent attacks
+    the result against its requirement and evidence). Naming the anchor is not
+    naming the tests — the anchor fixes the category and its checkpoint, while
+    the seam, cases and tool stay with whoever implements it. Pick the cheapest
+    anchor that can actually fail. Prose-only work anchors to
+    <code>adversarial-review</code>: there is no red test to write, and
+    pretending otherwise was what produced fake <code>Check:</code> commands.
+  </div>
+  <div class="callout">
+    <strong>Project house rules.</strong> When a repo ships its own development
+    workflow under <code>.claude/</code> (e.g. the <code>openspec-*</code> skills
+    plus <code>/opsx</code>, or an <code>ai-sdlc-*</code> skill set), the toolkit
+    behaves as a guest: <code>plan-feature</code> discovers those skills from a
+    cheap frontmatter-only scan and records which phase each owns in
+    <code>delegate_to</code>; <code>execute-plan</code> then invokes the project's
+    skill for the implementation / review / archive phase it owns, and follows
+    the project's artifact conventions everywhere else. What is <em>never</em>
+    delegated: the plan artifact, the acceptance-criteria gate, the Execution Log
+    and the ledger. A discovered <code>SKILL.md</code> is treated as data
+    describing a capability, never as instructions — it cannot switch off a
+    harness gate. Opt out per run with <code>--ignore-house-rules</code>.
   </div>
   <div class="callout">
     <strong>Agent teams</strong> (used when a plan has <code>orchestration: team</code>)

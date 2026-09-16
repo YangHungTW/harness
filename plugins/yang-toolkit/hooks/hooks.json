@@ -88,6 +88,16 @@
     ],
     "Stop": [
       {
+        "_comment": "Checkpoint guard (ported from straw-boss's dispatched-agent-stop-guard): refuse to let a turn end silently with the tracked plan still `status: executing` and no Execution Log entry for this run. Terminal (done/failed) and parked (awaiting-input/awaiting-auth) states pass through untouched. Nudges by default; HARNESS_STRICT_CHECKPOINT=1 blocks the stop so an unattended /goal or /loop run is forced back in to finish Step 7. Opt-out: HARNESS_DISABLE_CHECKPOINT_GUARD=1.",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/execution-checkpoint-guard.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "hooks": [
           {
             "type": "command",
