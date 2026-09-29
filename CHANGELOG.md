@@ -6,6 +6,87 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Versions track `plugins/yang-toolkit/.claude-plugin/plugin.json`.
 
+## [0.20.0] - 2026-09-29
+
+### Added
+- **Workspace mode -- `/yang-toolkit:go` from `~/Projects`.** Step 1 of porting
+  [straw-boss](https://github.com/wayne930242/straw-boss)'s app-rooted model.
+  Launched in a non-git directory that holds several projects, `go` first
+  resolves which project(s) a plain-language request is about, then declares
+  the targets with evidence and the next command.
+  - **Registry, not summaries.** The project list is a small, self-maintaining
+    `.claude/workspace.json` (name, dir, `match` phrases, `risk`,
+    `forbidDirectCommit`, `localFiles`, `redirectTo`, `note`). Its fields are
+    trimmed from straw-boss's `apps.json`. Everything else about a project is
+    read from that project's own CLAUDE.md, AGENTS.md or README at resolve time.
+    No model-written project summary is ever persisted: a digest drifts from the
+    rules it summarizes, and README prose in shared state is an injection vector.
+  - **`/yang-toolkit:workspace-init`.**
+    - Scripts propose every field from structure: dir, manifest name, README H1
+      tokens, and a rule table for `live-money` / `pii` / `prod-deploy`.
+    - The agent names short aliases (validated: no markup or instruction words).
+    - Nothing is asked. `/yang-toolkit:go` runs it automatically on first use and
+      whenever projects are added or removed. You get a folder list and correct
+      it in plain words ("SDES 加別名 X").
+    - Re-running it is a diff: registered entries are kept; added / removed
+      folders are applied. It validates the candidate before writing, so a
+      failure writes nothing.
+    - It syncs a managed one-line-per-project block into the workspace
+      `CLAUDE.md`, so the routing table is in context at launch.
+  - **Resolving** (`references/workspace.md`, the single statement of the rules):
+    1. Match the request against `name` / `match`.
+    2. Confirm the top 1-3 candidates against their own files, read in place as
+       data.
+    3. Declare the target(s), or ask **one** target question. That question is a
+       new explicit carve-out in `conventions.md`: the target is content, not
+       routing.
+  - **`scripts/workspace/`:**
+    - `status.sh` (one-call registry state: missing / invalid / ok, plus
+      unregistered and missing dirs; shared by the hook and `go`)
+    - `heads.sh` (the heads of any number of projects in one call, quoted as
+      data -- never the Read tool, which would load a project's CLAUDE.md as
+      instructions)
+    - `alias.jq` (the one definition of what a `match` alias may look like --
+      used by both `propose.sh` and `validate.sh`)
+    - `discover.sh` (depth ≤2, nested and spaced dirs, non-git projects)
+    - `propose.sh` (writes nothing)
+    - `validate.sh` (exit 0 valid / 1 invalid / 3 missing, like straw-boss's
+      read handler)
+  - **`hooks/workspace-check.sh`** (SessionStart). In a workspace it reports
+    "not registered yet", "invalid", "K unregistered" or "registered but
+    missing". It never writes, and is silent inside a git repo. Opt-out: `HARNESS_DISABLE_WORKSPACE=1`.
+  - **`tests/workspace/run.sh`**, the repo's first test script. Plain bash with
+    `mktemp -d` fixtures: discovery, propose, validate, hook, status and heads
+    suites (84 assertions).
+- **Hardened after adversarial review:**
+  - `validate.sh` now uses exact-match checks everywhere. A dangling
+    `redirectTo` that was a substring of a real name used to pass; redirect
+    chains and cycles are now rejected too.
+  - `validate.sh` fails closed if jq itself errors.
+  - `validate.sh` rejects control characters, `<`, `>` and backticks in
+    `match` / `note`, so nothing can forge the managed CLAUDE.md block.
+  - `validate.sh` rejects duplicate dirs, dirs that are both registered and
+    ignored, and `.` / `~` / trailing-slash dirs.
+  - `propose.sh` always produces names and `match` entries that pass
+    validation, including for CJK-only, long, one-char and colliding dir names.
+    H1 tokens are character-whitelisted.
+  - The hook reads the config through `validate.sh` and reports an invalid file
+    as invalid.
+  - Project heads are read with `heads.sh`, never the Read tool, which would
+    load a project's CLAUDE.md as instructions. It refuses symlinks that lead
+    out of the workspace, caps output size, and strips invisible characters.
+  - `note` and `redirectTo` are user-typed only.
+  - The suggested next command single-quotes the request.
+  - Aliases must pass `alias.jq`: a character whitelist, ≤3 words, and no
+    instruction or command words (fullwidth-folded, CJK included). A folder's
+    own name is exempt from the word list.
+  - Tests include a git-guard case that fails without the guard, and a mutation
+    check confirms the redirect and guard assertions go red when broken.
+- Out of scope for this step, coming next:
+  - app-rooted workers (sessions opened *inside* each project so they load its
+    own skills and hooks)
+  - multi-project orchestration and graded reporting
+
 ## [0.19.0] - 2026-09-15
 
 ### Added

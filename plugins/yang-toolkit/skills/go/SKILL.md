@@ -25,6 +25,44 @@ This skill routes and, for bounded work, executes. It owns no artifact format
 of its own: plans, decision docs, and the ledger stay with the commands that
 already own them.
 
+## Workspace pre-step -- resolve the project first
+
+When `${CLAUDE_PROJECT_DIR}` is a **workspace** (not a git work tree, holding
+several projects -- e.g. launched in `~/Projects`), a request has no subject until
+it has a project. After Task 0's reads and Task 1's classification, and before
+acting on the owner, follow `${CLAUDE_PLUGIN_ROOT}/references/workspace.md`.
+The rules live there; do not restate or re-derive them here.
+
+1. **Keep the registry current, automatically.** Run
+   `${CLAUDE_PLUGIN_ROOT}/scripts/workspace/status.sh`. When `config` is not `ok`,
+   or `unregistered` / `missing` is non-empty, run the `workspace-init` skill
+   inline. It asks nothing. Announce it in one line, e.g. `go: workspace registry
+   updated (+2 added, -1 removed)`, and keep init's folder list to that one line
+   plus its correction hint. Do not ask whether to run it. Then **re-run
+   `status.sh`**:
+   - `config: ok`: continue with the **same request** in the same turn.
+   - Anything else: say `go: workspace registry could not be written: <reason>`
+     in one line and stop. Do not resolve against a registry that isn't valid,
+     and do not retry within the turn.
+2. **Resolve** with that file's **Resolving a request** procedure, on the user's
+   words verbatim.
+
+Then declare the targets in the Task 3 form, one line per target with its
+evidence, and follow that file's **Where resolving stops** row:
+
+```
+go: workspace -> sdes (`SDES`; CLAUDE.md:3 士東國小弦樂團系統) · single project
+    next: cd '/Users/me/Projects/SDES' && claude '/yang-toolkit:go <request>'
+    override in one sentence.
+```
+
+**Skip the pre-step** when the request needs no project target: a parked plan's
+answer, continuing in-flight work, and the Task 1 rows `status`, `dashboard`,
+`today`, `week`, `workspace-init`, `share-plan`, and `ledger-append`. Classify
+against Task 1 first. Resolve only when the owner would act on a project. A
+correction to the registry ("SDES 加別名 X") routes to `workspace-init`, which
+applies it.
+
 ## Task 0 -- Read harness state BEFORE classifying
 
 Never classify a request in a vacuum -- the same sentence means different things
@@ -66,6 +104,7 @@ First match wins. Name the owner in the route declaration.
 | "最近做了什麼", project progress, a visual report          | `dashboard` skill                         |
 | "今天", morning brief, a bare greeting                     | `today` skill                             |
 | "週報", weekly recap                                       | `week` skill                              |
+| registering / refreshing / correcting a workspace's projects | `workspace-init` skill                 |
 | showing a plan to a non-terminal colleague                 | `/yang-toolkit:share-plan`                |
 | reviewing / rewriting / splitting `CLAUDE.md`              | `curate-claude-md` skill                  |
 | acting on pending nested-CLAUDE.md candidates              | `/yang-toolkit:claude-md-gaps`            |
@@ -198,6 +237,8 @@ Convenience at the entrance must not become permission at the exit. This skill:
 - **never** decides a gated mutation (merge, protected-branch push, destructive
   migration). Those stay exactly where the owning command already put them.
 - **never** starts a second feature while one is in flight.
+- **never** acts on a project the workspace pre-step did not resolve, and never
+  edits a project from a workspace session (see `references/workspace.md`).
 
 Routing is declared because routing is cheap to reverse. None of the above is.
 
@@ -211,4 +252,5 @@ Routing is declared because routing is cheap to reverse. None of the above is.
 | Request names a command explicitly (`/yang-toolkit:plan-feature ...`) | This skill should not have triggered. Step aside and let that command run.                                |
 | In-flight feature, and the user clearly starts a new subject   | Say the in-flight slug is still open and route the new request; offer `/yang-toolkit:status --abandon` in the same line. Never abandon it yourself. |
 | A repo with no `.claude/` harness state at all                 | Normal for a fresh repo. All state reads return "none"; route as new work.                                     |
+| Launched in a workspace (non-git dir holding several projects)  | Workspace pre-step above (skip it for target-free requests). Its one target question is the only question this skill asks. |
 | Backlog file named but unreadable                              | Abort with the path that failed. Do not guess the items or fall back to a different file.                      |

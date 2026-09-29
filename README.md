@@ -285,6 +285,7 @@ TDD discipline matters:
 | `/yang-toolkit:loop` | Plan/ledger-aware in-session heartbeat. Each tick discovers the next runnable plan (`accepted`/`draft`), runs it via `execute-plan` behind the objective acceptance-criteria gate, persists the outcome, and arms the next `ScheduleWakeup` tick. Propose-only by default; `--unattended` opts into auto execution; `--max-tokens <N>` caps total spend; `--once`/`--dry-run` for a single tick or a no-op preview. Kill switch: `Esc` or `CLAUDE_CODE_DISABLE_CRON=1`. |
 | `/yang-toolkit:dashboard` | Render `.claude/ledger.jsonl` + live git into a timestamped pair: interactive `dashboard-{TS}.html` (timeline + kanban + stats + loop economics [accept rate / cost-per-accepted-change] + filters + feature-focus + in-browser git diff review) and a flat `dashboard-{TS}.md`. |
 | `/yang-toolkit:week` | Cross-repo weekly report from `~/.config/harness/repos.json`. |
+| `/yang-toolkit:workspace-init` | For a **workspace** (a non-git dir holding many projects, e.g. `~/Projects`): register its projects in `.claude/workspace.json`. Fully automatic -- you never need to run it yourself: `/yang-toolkit:go` runs it on first use and whenever projects are added or removed. Scripts derive the structure (dir, manifest name, README H1, rule-derived `live-money`/`pii`/`prod-deploy` risk), the agent names short aliases, nothing is asked; you get a folder list and correct it in plain words ("SDES 加別名 X"). Then `/yang-toolkit:go <request>` launched there resolves which project(s) the request is about -- confirmed against each project's own files, at most one question -- and hands you the next command. Nothing is written inside any project; a SessionStart hook reports the registry's state. Rules: `references/workspace.md`. |
 | `/yang-toolkit:today` | Daily digest aggregating GitHub / external surfaces + every tracked repo's recent ledger entries. |
 | `/yang-toolkit:ledger-append` | Manually backfill a ledger entry, or `--close <slug>` to auto-flip a feature to `merged` from `gh` PR state. |
 | `/yang-toolkit:curate-claude-md` | Audit + reorganize existing CLAUDE.md files (technical rules drift up, business rules drift down). |
@@ -577,6 +578,13 @@ claude --plugin-dir ./plugins/yang-toolkit
 `execute-plan-team` workflow are all implemented and in personal use
 (no warranty -- see the note at the top). Recent additions:
 
+- `v0.20.0` -- **workspace mode** (step 1 of porting straw-boss's app-rooted
+  model): launch in `~/Projects` and
+  `/yang-toolkit:go` registers the projects on first use, then resolves a plain-language request to the right project(s)
+  from a self-maintaining `.claude/workspace.json` (folder, aliases, risk) -- no generated project
+  summaries, no writes inside projects. To skip permission prompts for its
+  scripts, allow `Bash(<plugin>/scripts/workspace/discover.sh *)`,
+  `status.sh *`, `propose.sh *`, `heads.sh *` and `validate.sh *` in the workspace's `.claude/settings.json`
 - `v0.19.0` -- `/yang-toolkit:go`, one door for the whole toolkit: routes any
   one-line request to the right command and the smallest sufficient loop instead
   of making you remember the plan -> execute -> ledger sequence
