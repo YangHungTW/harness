@@ -26,6 +26,12 @@ two are identical, so non-worktree users see no change.
 `.claude/state/loop-state.json` (`/yang-toolkit:loop` heartbeat budget/iteration
 state -- tied to one working session, so branch-local, not durable).
 
+**Workspace** (launched in a non-git dir holding several projects, e.g.
+`~/Projects`): the fallback above makes `<HARNESS_ROOT>` the workspace root, so
+workspace-level plans and ledger live in `<WORKSPACE_ROOT>/.claude/`, beside the
+project registry `.claude/workspace.json`. Detection, the registry, and the rule
+that nothing is written inside a registered project: `references/workspace.md`.
+
 ## Ledger schema
 
 One compact JSON object per line in `<HARNESS_ROOT>/.claude/ledger.jsonl`:
@@ -181,6 +187,12 @@ route: discipline=tdd (vitest + a pure resolver seam) ·
 verify this?" -- judging that is the command's job. What stays a real question:
 the plan's *content* (goal, criteria, scope), destructive actions, and anything
 in the `--yes` resolution table. Routing is not content.
+
+**One carve-out: the target.** In a workspace, *which project* a request is about
+is content, not routing -- guessing it wrong edits the wrong codebase. When the
+resolving procedure in `references/workspace.md` cannot confirm a target, it asks
+exactly one target question. Everything after the target is known (discipline,
+orchestration, anchors) is still declared, never asked.
 
 ### Judging `discipline`
 

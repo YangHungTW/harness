@@ -204,7 +204,7 @@
   <div class="hdr-title">
     harness <span class="slash">//</span> <span class="what">usage</span>
   </div>
-  <span class="badge">yang-toolkit v0.19.0</span>
+  <span class="badge">yang-toolkit v0.20.0</span>
   <span class="badge">2026-06-07</span>
   <span class="badge" style="margin-left:auto;"><b style="color:var(--text);">EN</b> · <a href="usage.zh.html">中文</a></span>
 </header>
@@ -409,6 +409,7 @@
       <tr><td><code>/yang-toolkit:loop</code></td><td>Plan/ledger-aware in-session heartbeat: each tick discovers the next runnable plan (<code>accepted</code>/<code>draft</code>), runs it via <code>execute-plan</code> behind the objective acceptance-criteria gate, persists the outcome, and arms the next <code>ScheduleWakeup</code> tick. <strong>Propose-only + one-shot by default</strong>; <code>--unattended</code> opts into auto execution + the recurring loop (<code>accepted</code> plans only, floored by <code>permissions.deny</code>) -- it drives <code>execute-plan --auto --yes</code> so a tick never pauses on a confirm prompt; <code>--max-tokens &lt;N&gt;</code> caps total spend (Ralph-Wiggum guard). Kill switch: <code>Esc</code> or <code>CLAUDE_CODE_DISABLE_CRON=1</code>. The plan-aware sibling of the generic <code>/loop</code> skill.</td></tr>
       <tr><td><code>/yang-toolkit:today</code></td><td>Daily digest aggregating external surfaces (GitHub/Jira/Slack) + every tracked repo's recent ledger entries.</td></tr>
       <tr><td><code>/yang-toolkit:week</code></td><td>Cross-repo weekly report from <code>~/.config/harness/repos.json</code>.</td></tr>
+      <tr><td><code>/yang-toolkit:workspace-init</code></td><td>Launched in a <strong>workspace</strong> (a non-git dir holding many projects, e.g. <code>~/Projects</code>)? Registers its projects in <code>.claude/workspace.json</code>: fully automatic — <code>/yang-toolkit:go</code> runs it on first use and whenever projects are added or removed. Scripts derive the structure (dir, manifest name, README H1, rule-derived risk such as <code>live-money</code>/<code>pii</code>), the agent names short aliases, and nothing is asked; you get a folder list and correct it in plain words. After that, <code>/yang-toolkit:go &lt;request&gt;</code> resolves which project(s) the request is about, confirms against each project's own files, and asks at most one question. Nothing is written inside any project. A SessionStart hook reports the registry's state.</td></tr>
       <tr><td><code>/yang-toolkit:dashboard</code></td><td>Render <code>.claude/ledger.jsonl</code> + live git into a timestamped pair: an interactive <code>dashboard-&lt;TS&gt;.html</code> (timeline + kanban + stats + <strong>loop economics</strong> [accept rate &amp; cost-per-accepted-change], with outcome filters, feature-focus, and an <strong>in-browser git diff reviewer</strong>) and a flat <code>dashboard-&lt;TS&gt;.md</code> for review/AI.</td></tr>
       <tr><td><code>/yang-toolkit:share-plan &lt;slug&gt;</code></td><td>Render a plan (or any plan-shaped markdown) to a clean, self-contained, shareable HTML doc at <code>.claude/plans/&lt;slug&gt;-&lt;TS&gt;.html</code>. Read-only snapshot.</td></tr>
       <tr><td><code>/yang-toolkit:claude-md-gaps</code></td><td>Review nested-folder <code>CLAUDE.md</code> candidates the passive hook flagged. Gated on accept.</td></tr>

@@ -12,6 +12,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "_comment": "Workspace check: when launched in a non-git dir holding several projects (e.g. ~/Projects), tell the model whether .claude/workspace.json exists and which discovered projects it does not cover yet. Counts only -- never writes, never builds. Silent inside a git repo. Rules: references/workspace.md. Opt-out: HARNESS_DISABLE_WORKSPACE=1.",
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/workspace-check.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [

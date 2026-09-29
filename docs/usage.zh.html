@@ -205,7 +205,7 @@
   <div class="hdr-title">
     harness <span class="slash">//</span> <span class="what">使用說明</span>
   </div>
-  <span class="badge">yang-toolkit v0.19.0</span>
+  <span class="badge">yang-toolkit v0.20.0</span>
   <span class="badge">2026-06-07</span>
   <span class="badge" style="margin-left:auto;"><a href="usage.html">EN</a> · <b style="color:var(--text);">中文</b></span>
 </header>
@@ -404,6 +404,7 @@
       <tr><td><code>/yang-toolkit:loop</code></td><td>plan/ledger 感知的 in-session 心跳：每個 tick 找出下一個可執行的 plan（<code>accepted</code>/<code>draft</code>），交給 <code>execute-plan</code> 在客觀驗收條件閘後執行，記錄結果，再排下一個 <code>ScheduleWakeup</code> tick。<strong>預設 propose-only + 單次</strong>；<code>--unattended</code> 才進入自動執行 + 循環心跳（只跑 <code>accepted</code>，並以 <code>permissions.deny</code> 為硬底線）— 它用 <code>execute-plan --auto --yes</code> 執行，所以 tick 不會卡在確認提示上；<code>--max-tokens &lt;N&gt;</code> 設總花費上限（Ralph-Wiggum 防呆）。停止：<code>Esc</code> 或 <code>CLAUDE_CODE_DISABLE_CRON=1</code>。是內建 <code>/loop</code> skill 的 plan 感知版。</td></tr>
       <tr><td><code>/yang-toolkit:today</code></td><td>當日摘要：聚合 GitHub / Jira / Slack 等外部 surface + 所有追蹤 repo 的最近 ledger entries。</td></tr>
       <tr><td><code>/yang-toolkit:week</code></td><td>跨 repo 週報，來源是 <code>~/.config/harness/repos.json</code>。</td></tr>
+      <tr><td><code>/yang-toolkit:workspace-init</code></td><td>在 <strong>workspace</strong>（本身不是 git repo、底下有很多 project 的目錄，例如 <code>~/Projects</code>）裡啟動時，把各 project 登記到 <code>.claude/workspace.json</code>：全自動：<code>/yang-toolkit:go</code> 第一次使用、以及有 project 新增或移除時會自己跑它。script 從結構判定欄位（目錄、manifest 名稱、README H1、規則判定的風險，例如 <code>live-money</code>/<code>pii</code>），agent 自己取簡短別名，完全不問你；你只會看到一份資料夾清單，想改用一句話說就好。之後 <code>/yang-toolkit:go &lt;需求&gt;</code> 會判斷需求屬於哪個（或哪幾個）project，用那個 project 自己的檔案確認，最多只問一個問題。不會在任何 project 裡寫檔。SessionStart hook 會回報登記狀態。</td></tr>
       <tr><td><code>/yang-toolkit:dashboard</code></td><td>把 <code>.claude/ledger.jsonl</code> + 即時 git 渲成一組有時間戳的成對檔：互動式 <code>dashboard-&lt;TS&gt;.html</code>（timeline + kanban + stats + <strong>loop economics</strong>〔接受率 &amp; 每個被接受變更的成本〕，含 outcome 篩選、feature focus、與<strong>瀏覽器內的 git diff 檢視</strong>）以及給 review/AI 用的純文字 <code>dashboard-&lt;TS&gt;.md</code>。</td></tr>
       <tr><td><code>/yang-toolkit:share-plan &lt;slug&gt;</code></td><td>把計畫（或任何 plan 形狀的 markdown）渲成乾淨、自包含、可分享的 HTML，輸出在 <code>.claude/plans/&lt;slug&gt;-&lt;TS&gt;.html</code>。唯讀快照。</td></tr>
       <tr><td><code>/yang-toolkit:claude-md-gaps</code></td><td>檢視被動 hook 累積的 nested <code>CLAUDE.md</code> 候選。要 user accept 才會真的寫檔。</td></tr>
